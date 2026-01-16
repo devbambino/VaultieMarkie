@@ -19,6 +19,8 @@
  */
 
 import { ethers } from "hardhat";
+import type { ethers as ethersType } from "ethers";
+import * as ethersLib from "ethers";
 
 // ============================================================================
 // UPDATE THESE ADDRESSES AFTER DEPLOYMENT
@@ -59,7 +61,7 @@ function logStep(step: number, title: string, color: string = "\x1b[36m") {
 /**
  * Get token balance with formatting
  */
-async function getBalance(token: ethers.Contract, account: string, symbol: string): Promise<bigint> {
+async function getBalance(token: ethersLib.Contract, account: string, symbol: string): Promise<bigint> {
   const balance = await token.balanceOf(account);
   const decimals = await token.decimals();
   const formatted = ethers.formatUnits(balance, decimals);
