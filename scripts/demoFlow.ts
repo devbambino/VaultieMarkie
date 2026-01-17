@@ -42,11 +42,11 @@ const BASE_SEPOLIA = {
 // UPDATE THIS from market-details.json after createMarket.ts
 const MARKET_ID = "0x9e745eaf869d3f5112802a512d07f3ccab77233e8cb245a7d762bb6e8fdc9f69"; // Will be set after createMarket.ts
 
-// Amount to supply (1,000 USDC = 1,000 * 10^6 wei)
-const SUPPLY_AMOUNT = ethers.parseUnits("1000", 6);
+// Amount to supply (10 USDC = 10 * 10^6 wei)
+const SUPPLY_AMOUNT = ethers.parseUnits("100", 6);
 
-// Amount to borrow (500 cCOP = 500 * 10^6 wei)
-const BORROW_AMOUNT = ethers.parseUnits("500", 6);
+// Amount to borrow (5 cCOP = 5 * 10^6 wei)
+const BORROW_AMOUNT = ethers.parseUnits("50", 6);
 
 /**
  * Log helper with formatting
