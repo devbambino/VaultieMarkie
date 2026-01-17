@@ -381,12 +381,6 @@ Ensure:
 
 ---
 
-## License
-
-MIT
-
----
-
 **Status:** ✅ Ready for Base Sepolia testnet
 
 **Last Updated:** January 2026
