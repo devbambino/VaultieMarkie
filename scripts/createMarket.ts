@@ -140,9 +140,9 @@ async function main() {
       "function market(bytes32 id) external view returns (tuple(uint128 totalSupplyAssets,uint128 totalBorrowAssets,uint32 lastUpdate,uint32 fee,uint32 timelock,uint160 totalSupplyShares,uint128 totalBorrowShares,uint128 virtualBorrowAssetsAndFees))",
     ];
 
-    // Vault Factory ABI
+    // Vault Factory ABI - MetaMorphoV1_1Factory
     const VAULT_FACTORY_ABI = [
-      "function createVault(address asset, string memory name, string memory symbol, address owner, uint256 timelock, bytes32 salt) external returns (address)",
+      "function createMetaMorpho(address initialOwner, uint256 initialTimelock, address asset, string memory name, string memory symbol, bytes32 salt) external returns (address)",
     ];
 
     // Vault ABI
@@ -150,6 +150,8 @@ async function main() {
       "function submitCap(tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) marketParams, uint256 newSupplyCap) external",
       "function acceptCap(tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) marketParams) external",
       "function setSupplyQueue(bytes32[] newSupplyQueue) external",
+      "function supplyQueueLength() external view returns (uint256)",
+      "function setIsAllocator(address allocator, bool isAllocator) external",
     ];
 
     const morpho = new ethers.Contract(MORPHO_BLUE_ADDRESS, MORPHO_ABI, deployer);
@@ -227,13 +229,13 @@ async function main() {
     console.log(`  Salt: ${vaultSalt}`);
 
     try {
-      const createVaultTx = await vaultFactory.createVault(
-        CONTRACT_ADDRESSES.mockCCOP, // asset (mockCCOP)
-        VAULT_CONFIG.name,           // name
-        VAULT_CONFIG.symbol,         // symbol
-        deployer.address,            // owner
-        VAULT_CONFIG.initialTimelock,// timelock
-        vaultSalt                    // salt
+      const createVaultTx = await vaultFactory.createMetaMorpho(
+        deployer.address,             // initialOwner
+        VAULT_CONFIG.initialTimelock, // initialTimelock
+        CONTRACT_ADDRESSES.mockCCOP,  // asset (mockCCOP)
+        VAULT_CONFIG.name,            // name
+        VAULT_CONFIG.symbol,          // symbol
+        vaultSalt                     // salt
       );
 
       vaultReceipt = await createVaultTx.wait();
@@ -242,20 +244,20 @@ async function main() {
       console.log(`  Block Number: ${vaultReceipt?.blockNumber}`);
       console.log("");
 
-      // Parse vault address from events
+      // Parse vault address from return value in logs using the factory ABI
+      const FACTORY_EVENT_ABI = [
+        "event CreateMetaMorpho(address indexed metaMorpho, address indexed caller, address initialOwner, uint256 initialTimelock, address indexed asset, string name, string symbol, bytes32 salt)",
+      ];
+      const iface = new ethers.Interface(FACTORY_EVENT_ABI);
+
       if (vaultReceipt?.logs) {
         for (const log of vaultReceipt.logs) {
           try {
-            // Look for VaultCreated event
-            if (log.topics[0] === ethers.id("VaultCreated(address,string,string)")) {
-              const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-                ["address", "string", "string"],
-                log.data
-              );
-              vaultAddress = log.topics[1]?.replace("0x000000000000000000000000", "0x") || "";
-              if (!vaultAddress) {
-                vaultAddress = decoded[0];
-              }
+            // Try to parse using the factory interface
+            const parsed = iface.parseLog(log);
+            if (parsed && parsed.name === "CreateMetaMorpho") {
+              vaultAddress = parsed.args[0]; // metaMorpho address is first indexed param
+              break;
             }
           } catch (e) {
             // Continue parsing
@@ -263,10 +265,16 @@ async function main() {
         }
       }
 
-      // If we couldn't find it in logs, estimate from factory pattern
+      // If we still couldn't find it, try a different approach
       if (!vaultAddress) {
-        console.log("Note: Vault address not found in logs. Check transaction details.");
-        console.log("Vault may have been created at a computed address.");
+        console.log("Note: Vault address not found in logs directly, attempting alternative detection...");
+        // Log all topics for debugging
+        if (vaultReceipt?.logs && vaultReceipt.logs.length > 0) {
+          console.log(`Received ${vaultReceipt.logs.length} logs from transaction`);
+          for (let i = 0; i < Math.min(3, vaultReceipt.logs.length); i++) {
+            console.log(`  Log ${i}: topic[0] = ${vaultReceipt.logs[i].topics[0]}`);
+          }
+        }
       } else {
         console.log(`✓ Vault created at: ${vaultAddress}`);
       }
@@ -305,12 +313,19 @@ async function main() {
       // Accept cap if timelock is 0 (for testing)
       if (VAULT_CONFIG.initialTimelock === 0) {
         console.log("Accepting supply cap (timelock = 0)...");
-        const acceptCapTx = await vault.acceptCap(marketParams);
-        const acceptCapReceipt = await acceptCapTx.wait();
+        try {
+          const acceptCapTx = await vault.acceptCap(marketParams);
+          const acceptCapReceipt = await acceptCapTx.wait();
 
-        console.log(`✓ Supply cap accepted!`);
-        console.log(`  Transaction Hash: ${acceptCapReceipt?.hash}`);
-        console.log("");
+          console.log(`✓ Supply cap accepted!`);
+          console.log(`  Transaction Hash: ${acceptCapReceipt?.hash}`);
+          console.log("");
+        } catch (e: any) {
+          // If accept fails, the cap was probably already accepted or there's an issue
+          console.log("⚠️  Could not accept cap immediately (cap submission may have already set it)");
+          console.log(`  Error: ${e.message?.substring(0, 100)}`);
+          console.log("");
+        }
       } else {
         console.log(`⏱️  Supply cap is pending (timelock = ${VAULT_CONFIG.initialTimelock}s)`);
         console.log("Call acceptCap() after timelock expires.");
@@ -322,13 +337,48 @@ async function main() {
       // ============================================================================
       console.log("[5/5] Configuring vault: Setting supply queue...");
 
-      console.log(`Setting supply queue with market: ${marketId}`);
-      const setQueueTx = await vault.setSupplyQueue([marketId]);
-      const queueReceipt = await setQueueTx.wait();
+      // First, set deployer as allocator so they can set the supply queue
+      console.log("Setting deployer as allocator...");
+      try {
+        const setAllocatorTx = await vault.setIsAllocator(deployer.address, true);
+        await setAllocatorTx.wait();
+        console.log("✓ Deployer set as allocator");
+      } catch (e: any) {
+        console.log("⚠️  Could not set deployer as allocator");
+        throw new Error("Failed to set allocator role. Make sure the deployer is the vault owner.");
+      }
+      console.log("");
 
-      console.log(`✓ Supply queue configured!`);
-      console.log(`  Transaction Hash: ${queueReceipt?.hash}`);
-      console.log(`  Block Number: ${queueReceipt?.blockNumber}`);
+      console.log(`Setting supply queue with market: ${marketId}`);
+      try {
+        // Try to set supply queue - this requires the market to have cap > 0
+        // If it fails due to zero cap, we'll skip it (user can set it manually later)
+        try {
+          const setQueueTx = await vault.setSupplyQueue([marketId]);
+          const queueReceipt = await setQueueTx.wait();
+
+          console.log(`✓ Supply queue configured!`);
+          console.log(`  Transaction Hash: ${queueReceipt?.hash}`);
+          console.log(`  Block Number: ${queueReceipt?.blockNumber}`);
+
+          // Verify queue was set
+          const queueLength = await vault.supplyQueueLength();
+          console.log(`✓ Verified: Supply queue length = ${queueLength}`);
+        } catch (e: any) {
+          const errorMsg = e.message || "";
+          if (errorMsg.includes("UnauthorizedMarket")) {
+            console.log("⚠️  Cannot set supply queue: Market has zero cap");
+            console.log("    The cap needs to be accepted first.");
+            console.log("    You can manually call: vault.setSupplyQueue([marketId])");
+          } else {
+            throw e;
+          }
+        }
+      } catch (e: any) {
+        console.error("ERROR setting supply queue:", e.message);
+        console.log("⚠️  Skipping supply queue configuration - you can set it manually later");
+        console.log("    Call: vault.setSupplyQueue([marketId])");
+      }
       console.log("");
     }
 

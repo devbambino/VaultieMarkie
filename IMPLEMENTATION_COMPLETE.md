@@ -162,6 +162,7 @@ cp .env.example .env
 npm run compile          # ✅ Verify compilation
 npm run deploy           # 📝 Copy addresses
 npm run create-market    # 📝 Copy market ID
+npm run mint-and-supply  # mint cCOP and supply to Vault
 npm run demo             # 🚀 Execute full flow
 
 # 4. (Optional) Frontend

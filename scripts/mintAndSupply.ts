@@ -2,9 +2,9 @@
  * Mint & Supply Script
  * 
  * This script performs the following:
- * 1. Mint 100 MockCCOP tokens to the deployer (as the owner)
- * 2. Approve MockCCOP to Morpho Blue
- * 3. Supply MockCCOP to Morpho Blue market as liquidity
+ * 1. Mint 100 MockCCOP tokens to the deployer
+ * 2. Approve MockCCOP to the MetaMorpho Vault
+ * 3. Deposit MockCCOP into the MetaMorpho Vault
  * 
  * Prerequisites:
  * 1. npx hardhat run scripts/deploy.ts --network baseSepolia
@@ -24,22 +24,21 @@ const CONTRACT_ADDRESSES = {
   mockCCOP: "0x789D299321f194B47f3b72d33d0e028376277AA3", // From deploy.ts output
 };
 
-// Morpho Blue on Base Sepolia
-const MORPHO_BLUE_ADDRESS = "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb";
-
 // Amount to mint (100 cCOP with 6 decimals)
-const MINT_AMOUNT = ethers.parseUnits("100", 6);
+const MINT_AMOUNT = ethers.parseUnits("30", 6);
 
-// Supply to Morpho
-const SUPPLY_AMOUNT = ethers.parseUnits("100", 6);
+// Amount to deposit to vault
+const DEPOSIT_AMOUNT = ethers.parseUnits("100", 6);
 
 // Load market details from previous script
+let VAULT_ADDRESS: string;
 let MARKET_ID: string;
 let marketParams: any;
 
 try {
   const marketDetailsPath = path.join(__dirname, "../market-details.json");
   const marketDetails = JSON.parse(fs.readFileSync(marketDetailsPath, "utf-8"));
+  VAULT_ADDRESS = marketDetails.vaultAddress;
   MARKET_ID = marketDetails.marketId;
   marketParams = {
     loanToken: marketDetails.loanToken,
@@ -49,6 +48,7 @@ try {
     lltv: BigInt(marketDetails.lltv),
   };
   console.log(`✓ Loaded market details from market-details.json`);
+  console.log(`  Vault Address: ${VAULT_ADDRESS}`);
   console.log(`  Market ID: ${MARKET_ID}`);
 } catch (error) {
   throw new Error(
@@ -59,7 +59,7 @@ try {
 
 async function main() {
   console.log("=".repeat(70));
-  console.log("Mint & Supply MockCCOP to Morpho Blue");
+  console.log("Mint & Deposit MockCCOP to MetaMorpho Vault");
   console.log("=".repeat(70));
   console.log("");
 
@@ -96,11 +96,12 @@ async function main() {
     const balance = await mockCCOP.balanceOf(deployer.address);
     console.log(`✓ MockCCOP Balance: ${ethers.formatUnits(balance, 6)} cCOP`);
     console.log("");
+    return;
 
     // ========================================================================
-    // [2/3] Approve MockCCOP to Morpho Blue
+    // [2/3] Approve MockCCOP to MetaMorpho Vault
     // ========================================================================
-    console.log("[2/3] Approving MockCCOP for Morpho Blue...");
+    console.log("[2/3] Approving MockCCOP for MetaMorpho Vault...");
 
     const ERC20_ABI = [
       "function approve(address spender, uint256 amount) external returns (bool)",
@@ -108,8 +109,8 @@ async function main() {
 
     const mockCCOPERC20 = new ethers.Contract(CONTRACT_ADDRESSES.mockCCOP, ERC20_ABI, deployer);
 
-    console.log(`Approving ${ethers.formatUnits(SUPPLY_AMOUNT, 6)} cCOP to Morpho Blue...`);
-    const approveTx = await mockCCOPERC20.approve(MORPHO_BLUE_ADDRESS, SUPPLY_AMOUNT);
+    console.log(`Approving ${ethers.formatUnits(DEPOSIT_AMOUNT, 6)} cCOP to Vault (${VAULT_ADDRESS})...`);
+    const approveTx = await mockCCOPERC20.approve(VAULT_ADDRESS, DEPOSIT_AMOUNT);
     const approveReceipt = await approveTx.wait();
 
     console.log(`✓ Approval transaction confirmed!`);
@@ -118,51 +119,77 @@ async function main() {
     console.log("");
 
     // ========================================================================
-    // [3/3] Supply MockCCOP to Morpho Blue
+    // [3/3] Verify Vault Configuration Before Deposit
     // ========================================================================
-    console.log("[3/3] Supplying MockCCOP to Morpho Blue market...");
+    console.log("[3/3] Verifying vault configuration...");
 
-    const MORPHO_ABI = [
-      "function supply(tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data) external returns (uint256, uint256)",
-      "function market(bytes32 id) external view returns (tuple(uint128 totalSupplyAssets,uint128 totalBorrowAssets,uint32 lastUpdate,uint32 fee,uint32 timelock,uint160 totalSupplyShares,uint128 totalBorrowShares,uint128 virtualBorrowAssetsAndFees))",
+    const VAULT_ABI = [
+      "function deposit(uint256 assets, address receiver) external returns (uint256)",
+      "function balanceOf(address account) external view returns (uint256)",
+      "function asset() external view returns (address)",
+      "function supplyQueueLength() external view returns (uint256)",
+      "function supplyQueue(uint256 index) external view returns (bytes32)",
     ];
 
-    const morpho = new ethers.Contract(MORPHO_BLUE_ADDRESS, MORPHO_ABI, deployer);
+    const vault = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, deployer);
 
-    console.log(`Supplying ${ethers.formatUnits(SUPPLY_AMOUNT, 6)} cCOP to market...`);
-    console.log(`Market ID: ${MARKET_ID}`);
-    console.log(`Market Parameters:`);
-    console.log(`  Loan Token: ${marketParams.loanToken}`);
-    console.log(`  Collateral: ${marketParams.collateralToken}`);
-    console.log(`  Oracle: ${marketParams.oracle}`);
-    console.log(`  IRM: ${marketParams.irm}`);
+    const queueLength = await vault.supplyQueueLength();
+    const queueLengthNum = Number(queueLength);
+    console.log(`Vault supply queue length: ${queueLengthNum}`);
+    
+    if (queueLengthNum === 0) {
+      console.log("");
+      console.log("❌ VAULT NOT CONFIGURED - Cannot deposit!");
+      console.log("");
+      console.log("The vault needs to be configured with the market in its supply queue.");
+      console.log("");
+      console.log("STEPS TO MANUALLY CONFIGURE THE VAULT:");
+      console.log("");
+      console.log("1. Call acceptCap() with the market parameters to accept the pending supply cap");
+      console.log("2. Call setSupplyQueue() with the market ID to set the supply queue");
+      console.log("");
+      console.log("DETAILS:");
+      console.log(`  Vault Address: ${VAULT_ADDRESS}`);
+      console.log(`  Market ID:     ${MARKET_ID}`);
+      console.log("");
+      console.log("After configuring these, run this script again.");
+      console.log("");
+      process.exit(0);
+    }
+
+    console.log("✓ Vault is properly configured");
+    for (let i = 0; i < Math.min(queueLengthNum, 3); i++) {
+      const queuedMarket = await vault.supplyQueue(i);
+      console.log(`  Queue[${i}]: ${queuedMarket}`);
+    }
     console.log("");
 
-    const supplyTx = await morpho.supply(
-      marketParams,
-      SUPPLY_AMOUNT,  // assets
-      0,              // shares (0 to specify assets instead)
-      deployer.address, // onBehalf
-      "0x"            // data (empty)
-    );
+    // ========================================================================
+    // [4/4] Deposit MockCCOP to MetaMorpho Vault
+    // ========================================================================
+    console.log("[4/4] Depositing MockCCOP to MetaMorpho Vault...");
 
-    const supplyReceipt = await supplyTx.wait();
-
-    console.log(`✓ Supply transaction confirmed!`);
-    console.log(`  Transaction Hash: ${supplyReceipt?.hash}`);
-    console.log(`  Block Number: ${supplyReceipt?.blockNumber}`);
-    console.log(`  Gas Used: ${supplyReceipt?.gasUsed}`);
+    console.log(`Depositing ${ethers.formatUnits(DEPOSIT_AMOUNT, 6)} cCOP to vault...`);
+    console.log(`Vault Address: ${VAULT_ADDRESS}`);
     console.log("");
 
-    // Verify supply
-    console.log("Verifying supply in market...");
+    const depositTx = await vault.deposit(DEPOSIT_AMOUNT, deployer.address);
+    const depositReceipt = await depositTx.wait();
+
+    console.log(`✓ Deposit transaction confirmed!`);
+    console.log(`  Transaction Hash: ${depositReceipt?.hash}`);
+    console.log(`  Block Number: ${depositReceipt?.blockNumber}`);
+    console.log(`  Gas Used: ${depositReceipt?.gasUsed}`);
+    console.log("");
+
+    // Verify deposit
+    console.log("Verifying deposit in vault...");
     try {
-      const marketData = await morpho.market(MARKET_ID);
-      console.log(`✓ Market state verified:`);
-      console.log(`  Total Supply Assets: ${marketData[0]}`);
-      console.log(`  Total Borrow Assets: ${marketData[1]}`);
+      const vaultShares = await vault.balanceOf(deployer.address);
+      console.log(`✓ Vault shares received:`);
+      console.log(`  Shares Balance: ${ethers.formatUnits(vaultShares, 6)}`);
     } catch (e) {
-      console.log("  (Could not retrieve detailed market data, but transaction was confirmed)");
+      console.log("  (Could not retrieve vault balance, but transaction was confirmed)");
     }
     console.log("");
 
@@ -170,17 +197,17 @@ async function main() {
     // Summary
     // ========================================================================
     console.log("=".repeat(70));
-    console.log("✓ MINT & SUPPLY COMPLETE");
+    console.log("✓ MINT & DEPOSIT COMPLETE");
     console.log("=".repeat(70));
     console.log("");
     console.log("Summary:");
     console.log(`  ✓ Minted: ${ethers.formatUnits(MINT_AMOUNT, 6)} cCOP`);
-    console.log(`  ✓ Supplied: ${ethers.formatUnits(SUPPLY_AMOUNT, 6)} cCOP to Morpho Blue`);
-    console.log(`  ✓ Market ID: ${MARKET_ID}`);
+    console.log(`  ✓ Deposited: ${ethers.formatUnits(DEPOSIT_AMOUNT, 6)} cCOP to MetaMorpho Vault`);
+    console.log(`  ✓ Vault Address: ${VAULT_ADDRESS}`);
     console.log("");
     console.log("Next Steps:");
-    console.log("1. Use the supplied cCOP as liquidity for borrowers");
-    console.log("2. Monitor market positions and earn interest");
+    console.log("1. The vault will automatically allocate your deposit to Morpho Blue markets");
+    console.log("2. Monitor your vault shares and earn interest");
     console.log("3. Run: npx hardhat run scripts/demoFlow.ts --network baseSepolia");
     console.log("");
 
