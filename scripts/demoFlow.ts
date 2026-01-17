@@ -33,7 +33,7 @@ const CONTRACT_ADDRESSES = {
 
 // Base Sepolia addresses (do not change)
 const BASE_SEPOLIA = {
-  usdc: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+  usdc: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f", // Aave's Testnet USDC
   aUSDC: "0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc",
   aavePool: "0x7B4eb56E7CD4eFc5c4D044DBC3917eB21f3d5dAE",
   morphoBlue: "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
