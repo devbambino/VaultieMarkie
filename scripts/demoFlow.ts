@@ -26,9 +26,9 @@ import * as ethersLib from "ethers";
 // UPDATE THESE ADDRESSES AFTER DEPLOYMENT
 // ============================================================================
 const CONTRACT_ADDRESSES = {
-  mockCCOP: "0x", // From deploy.ts
-  waUSDC: "0x",   // From deploy.ts
-  fixedPriceOracle: "0x", // From deploy.ts
+  mockCCOP: "0x789D299321f194B47f3b72d33d0e028376277AA3", // From deploy.ts output
+  waUSDC: "0x1DA5199ecaAe23F85c7fd7611703E81273041149",   // From deploy.ts output
+  fixedPriceOracle: "0xa8B8bBc0A572803A9153336122EBc971DeF60672", // From deploy.ts output
 };
 
 // Base Sepolia addresses (do not change)
@@ -40,7 +40,7 @@ const BASE_SEPOLIA = {
 };
 
 // UPDATE THIS from market-details.json after createMarket.ts
-const MARKET_ID = "0x"; // Will be set after createMarket.ts
+const MARKET_ID = "0x9e745eaf869d3f5112802a512d07f3ccab77233e8cb245a7d762bb6e8fdc9f69"; // Will be set after createMarket.ts
 
 // Amount to supply (1,000 USDC = 1,000 * 10^6 wei)
 const SUPPLY_AMOUNT = ethers.parseUnits("1000", 6);
@@ -83,9 +83,9 @@ async function main() {
   if (!CONTRACT_ADDRESSES.mockCCOP.startsWith("0x") || CONTRACT_ADDRESSES.mockCCOP === "0x") {
     throw new Error("ERROR: Update CONTRACT_ADDRESSES in this script with values from deploy.ts");
   }
-  if (!MARKET_ID.startsWith("0x") || MARKET_ID === "0x") {
+  /*if (!MARKET_ID.startsWith("0x") || MARKET_ID === "0x") {
     throw new Error("ERROR: Update MARKET_ID in this script with value from createMarket.ts");
-  }
+  }*/
 
   const [signer] = await ethers.getSigners();
   const signerAddress = await signer.getAddress();

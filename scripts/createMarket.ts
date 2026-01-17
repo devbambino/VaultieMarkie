@@ -39,15 +39,14 @@ const CONTRACT_ADDRESSES = {
 const MORPHO_BLUE_ADDRESS = "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb";
 
 // Morpho Vault Factory on Base Sepolia
-const VAULT_FACTORY_ADDRESS = "0x33bAFb0aEb3D76eAF65126C1Afc75cf05e6E1F5E";
+const VAULT_FACTORY_ADDRESS = "0x2c3FE6D71F8d54B063411Abb446B49f13725F784";
 
 // LLTV: 77% = 0.77 * 10^18
 const LLTV = ethers.parseEther("0.77");
 
-// Default IRM on Base Sepolia (commonly used simple IRM)
-// For this PoC, we'll use Morpho's permissionless WhitelistableIRM
-// If not available, we can use a simple custom one
-const IRM_ADDRESS = "0x46cAcB97d52D1C1c0c3189d879fD3dAF265b2eee";
+// Default IRM on Base Sepolia
+// Source: https://docs.morpho.org/get-started/resources/addresses
+const IRM_ADDRESS = "0x46415998764C29aB2a25CbeA6254146D50D22687";
 
 // Vault configuration
 const VAULT_CONFIG = {
@@ -120,12 +119,12 @@ async function main() {
     console.log(`  LLTV:            77% (${LLTV.toString()})`);
     console.log("");
 
-    // Create market params object
+    // Create market params object with normalized addresses
     const marketParams: MarketParams = {
-      loanToken: CONTRACT_ADDRESSES.mockCCOP,
-      collateralToken: CONTRACT_ADDRESSES.waUSDC,
-      oracle: CONTRACT_ADDRESSES.fixedPriceOracle,
-      irm: IRM_ADDRESS,
+      loanToken: ethers.getAddress(CONTRACT_ADDRESSES.mockCCOP),
+      collateralToken: ethers.getAddress(CONTRACT_ADDRESSES.waUSDC),
+      oracle: ethers.getAddress(CONTRACT_ADDRESSES.fixedPriceOracle),
+      irm: ethers.getAddress(IRM_ADDRESS),
       lltv: LLTV,
     };
 
@@ -136,9 +135,9 @@ async function main() {
 
     // Get Morpho Blue contract
     const MORPHO_ABI = [
-      "function createMarket(tuple(address,address,address,address,uint256) marketParams) external",
-      "function idToMarketParams(bytes32 id) external view returns (tuple(address,address,address,address,uint256))",
-      "function market(bytes32 id) external view returns (tuple(uint128,uint128,uint32,uint32,uint32,uint160,uint128,uint128))",
+      "function createMarket(tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) marketParams) external",
+      "function idToMarketParams(bytes32 id) external view returns (tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv))",
+      "function market(bytes32 id) external view returns (tuple(uint128 totalSupplyAssets,uint128 totalBorrowAssets,uint32 lastUpdate,uint32 fee,uint32 timelock,uint160 totalSupplyShares,uint128 totalBorrowShares,uint128 virtualBorrowAssetsAndFees))",
     ];
 
     // Vault Factory ABI
@@ -148,14 +147,16 @@ async function main() {
 
     // Vault ABI
     const VAULT_ABI = [
-      "function submitCap(tuple(address,address,address,address,uint256) marketParams, uint256 newSupplyCap) external",
-      "function acceptCap(tuple(address,address,address,address,uint256) marketParams) external",
+      "function submitCap(tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) marketParams, uint256 newSupplyCap) external",
+      "function acceptCap(tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) marketParams) external",
       "function setSupplyQueue(bytes32[] newSupplyQueue) external",
     ];
 
     const morpho = new ethers.Contract(MORPHO_BLUE_ADDRESS, MORPHO_ABI, deployer);
 
     console.log("[1/2] Checking if market already exists...");
+    let marketExists = false;
+    let receipt: any = null;
     try {
       const existingParams = await morpho.idToMarketParams(marketId);
       if (existingParams.loanToken !== ethers.ZeroAddress) {
@@ -166,30 +167,37 @@ async function main() {
         console.log(`  IRM:         ${existingParams.irm}`);
         console.log(`  LLTV:        ${existingParams.lltv.toString()}`);
         console.log("");
-        return;
+        marketExists = true;
       }
     } catch (e) {
       // Market doesn't exist yet, continue with creation
     }
 
-    console.log("[2/2] Creating market on Morpho Blue...");
-    const tx = await morpho.createMarket(marketParams);
-    const receipt = await tx.wait();
-    
-    console.log(`✓ Market creation transaction confirmed!`);
-    console.log(`  Transaction Hash: ${receipt?.hash}`);
-    console.log(`  Block Number: ${receipt?.blockNumber}`);
-    console.log(`  Gas Used: ${receipt?.gasUsed}`);
-    console.log("");
+    if (!marketExists) {
+      console.log("[2/2] Creating market on Morpho Blue...");
+      const tx = await morpho.createMarket(marketParams);
+      receipt = await tx.wait();
+      
+      console.log(`✓ Market creation transaction confirmed!`);
+      console.log(`  Transaction Hash: ${receipt?.hash}`);
+      console.log(`  Block Number: ${receipt?.blockNumber}`);
+      console.log(`  Gas Used: ${receipt?.gasUsed}`);
+      console.log("");
 
-    // Verify market was created
-    console.log("Verifying market creation...");
-    const marketData = await morpho.market(marketId);
-    console.log("✓ Market verified on chain:");
-    console.log(`  Market ID: ${marketId}`);
-    console.log(`  Total Supply Shares: ${marketData[0]}`);
-    console.log(`  Total Borrow Shares: ${marketData[1]}`);
-    console.log("");
+      // Verify market was created
+      console.log("Verifying market creation...");
+      try {
+        const marketData = await morpho.market(marketId);
+        console.log("✓ Market verified on chain:");
+        console.log(`  Market ID: ${marketId}`);
+        console.log(`  Market data: ${JSON.stringify(marketData)}`);
+      } catch (e) {
+        console.log("✓ Market created successfully!");
+        console.log(`  Market ID: ${marketId}`);
+        console.log("  (Note: Could not verify full market data, but transaction was confirmed)");
+      }
+      console.log("");
+    }
 
     // ============================================================================
     // Summary
@@ -208,58 +216,70 @@ async function main() {
 
     // Use a deterministic salt for vault creation
     const vaultSalt = ethers.id("cCOP_Vault_" + Date.now());
+    let vaultAddress = "";
+    let vaultReceipt: any = null;
 
     console.log(`Creating vault: ${VAULT_CONFIG.name} (${VAULT_CONFIG.symbol})`);
     console.log(`  Asset: ${CONTRACT_ADDRESSES.mockCCOP}`);
     console.log(`  Owner: ${deployer.address}`);
     console.log(`  Timelock: ${VAULT_CONFIG.initialTimelock} seconds`);
+    console.log(`  Vault Factory: ${VAULT_FACTORY_ADDRESS}`);
+    console.log(`  Salt: ${vaultSalt}`);
 
-    const createVaultTx = await vaultFactory.createVault(
-      CONTRACT_ADDRESSES.mockCCOP, // asset (mockCCOP)
-      VAULT_CONFIG.name,           // name
-      VAULT_CONFIG.symbol,         // symbol
-      deployer.address,            // owner
-      VAULT_CONFIG.initialTimelock,// timelock
-      vaultSalt                    // salt
-    );
+    try {
+      const createVaultTx = await vaultFactory.createVault(
+        CONTRACT_ADDRESSES.mockCCOP, // asset (mockCCOP)
+        VAULT_CONFIG.name,           // name
+        VAULT_CONFIG.symbol,         // symbol
+        deployer.address,            // owner
+        VAULT_CONFIG.initialTimelock,// timelock
+        vaultSalt                    // salt
+      );
 
-    const vaultReceipt = await createVaultTx.wait();
-    console.log(`✓ Vault creation transaction confirmed!`);
-    console.log(`  Transaction Hash: ${vaultReceipt?.hash}`);
-    console.log(`  Block Number: ${vaultReceipt?.blockNumber}`);
-    console.log("");
+      vaultReceipt = await createVaultTx.wait();
+      console.log(`✓ Vault creation transaction confirmed!`);
+      console.log(`  Transaction Hash: ${vaultReceipt?.hash}`);
+      console.log(`  Block Number: ${vaultReceipt?.blockNumber}`);
+      console.log("");
 
-    // Parse vault address from events
-    let vaultAddress = "";
-    if (vaultReceipt?.logs) {
-      for (const log of vaultReceipt.logs) {
-        try {
-          // Look for VaultCreated event
-          if (log.topics[0] === ethers.id("VaultCreated(address,string,string)")) {
-            const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-              ["address", "string", "string"],
-              log.data
-            );
-            vaultAddress = log.topics[1]?.replace("0x000000000000000000000000", "0x") || "";
-            if (!vaultAddress) {
-              vaultAddress = decoded[0];
+      // Parse vault address from events
+      if (vaultReceipt?.logs) {
+        for (const log of vaultReceipt.logs) {
+          try {
+            // Look for VaultCreated event
+            if (log.topics[0] === ethers.id("VaultCreated(address,string,string)")) {
+              const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
+                ["address", "string", "string"],
+                log.data
+              );
+              vaultAddress = log.topics[1]?.replace("0x000000000000000000000000", "0x") || "";
+              if (!vaultAddress) {
+                vaultAddress = decoded[0];
+              }
             }
+          } catch (e) {
+            // Continue parsing
           }
-        } catch (e) {
-          // Continue parsing
         }
       }
-    }
 
-    // If we couldn't find it in logs, estimate from factory pattern
-    if (!vaultAddress) {
-      console.log("Note: Vault address not found in logs. Check transaction details.");
-      console.log("Vault may have been created at a computed address.");
-    } else {
-      console.log(`✓ Vault created at: ${vaultAddress}`);
-    }
+      // If we couldn't find it in logs, estimate from factory pattern
+      if (!vaultAddress) {
+        console.log("Note: Vault address not found in logs. Check transaction details.");
+        console.log("Vault may have been created at a computed address.");
+      } else {
+        console.log(`✓ Vault created at: ${vaultAddress}`);
+      }
 
-    console.log("");
+      console.log("");
+    } catch (error: any) {
+      console.error("Vault creation failed:", error?.message || error);
+      if (error?.data) {
+        console.error("Error data:", error.data);
+      }
+      console.log("Skipping vault configuration steps.");
+      console.log("");
+    }
 
     // ============================================================================
     // [4/3] Configure Vault: Set Market Cap
@@ -350,8 +370,17 @@ async function main() {
     const marketDetails = {
       marketId,
       vaultAddress: vaultAddress || "pending",
-      ...marketParams,
-      vaultConfig: VAULT_CONFIG,
+      loanToken: marketParams.loanToken,
+      collateralToken: marketParams.collateralToken,
+      oracle: marketParams.oracle,
+      irm: marketParams.irm,
+      lltv: marketParams.lltv.toString(),
+      vaultConfig: {
+        name: VAULT_CONFIG.name,
+        symbol: VAULT_CONFIG.symbol,
+        initialTimelock: VAULT_CONFIG.initialTimelock,
+        supplyCapAmount: VAULT_CONFIG.supplyCapAmount.toString(),
+      },
       blockNumber: receipt?.blockNumber,
       vaultBlockNumber: vaultReceipt?.blockNumber,
       marketTransactionHash: receipt?.hash,

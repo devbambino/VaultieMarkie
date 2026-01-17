@@ -1,0 +1,16 @@
+{
+  "marketId": "0x9e745eaf869d3f5112802a512d07f3ccab77233e8cb245a7d762bb6e8fdc9f69",
+  "vaultAddress": "pending",
+  "loanToken": "0x789D299321f194B47f3b72d33d0e028376277AA3",
+  "collateralToken": "0x1DA5199ecaAe23F85c7fd7611703E81273041149",
+  "oracle": "0xa8B8bBc0A572803A9153336122EBc971DeF60672",
+  "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
+  "lltv": "770000000000000000",
+  "vaultConfig": {
+    "name": "cCOP Vault",
+    "symbol": "vcCOP",
+    "initialTimelock": 0,
+    "supplyCapAmount": "100000000000000"
+  },
+  "timestamp": 1768609717954
+}
