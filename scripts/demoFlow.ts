@@ -78,19 +78,19 @@ async function calculateDebtFromShares(
   borrowShares: bigint
 ): Promise<bigint> {
   if (borrowShares === 0n) return 0n;
-  
+
   const marketABI = [
     "function market(bytes32 id) external view returns (tuple(uint128 totalSupplyAssets, uint128 totalSupplyShares, uint128 totalBorrowAssets, uint128 totalBorrowShares, uint128 lastUpdate, uint128 fee) returns ((uint128, uint128, uint128, uint128, uint128, uint128)))"
   ];
-  
+
   try {
     // Try to get market data if morpho has a market() function
     const market = await morpho.market(marketId);
     const totalBorrowAssets = market[2];
     const totalBorrowShares = market[3];
-    
+
     if (totalBorrowShares === 0n) return totalBorrowAssets;
-    
+
     const debtAssets = (borrowShares * totalBorrowAssets) / totalBorrowShares;
     return debtAssets;
   } catch (e) {
@@ -129,19 +129,19 @@ async function main() {
     // STEP 1: Mint USDC (for testing)
     // ========================================================================
     logStep(1, "Mint Test USDC", "\x1b[33m");
-    
+
     const usdcABI = [
       "function transfer(address to, uint256 amount) external returns (bool)",
       "function approve(address spender, uint256 amount) external returns (bool)",
       "function balanceOf(address account) external view returns (uint256)",
       "function decimals() external view returns (uint8)",
     ];
-    
+
     const usdc = new ethers.Contract(BASE_SEPOLIA.usdc, usdcABI, signer);
-    
+
     console.log(`Checking USDC balance...`);
     let usdcBalance = await getBalance(usdc, signerAddress, "USDC");
-    
+
     // If balance is low, we'd need to get USDC from a faucet
     // For this demo, we assume USDC is already available
     if (usdcBalance < SUPPLY_AMOUNT) {
@@ -154,7 +154,7 @@ async function main() {
     // STEP 2: Approve USDC to Aave Pool
     // ========================================================================
     logStep(2, "Approve USDC for Aave Supply", "\x1b[33m");
-    
+
     console.log(`Approving ${ethers.formatUnits(SUPPLY_AMOUNT, 6)} USDC to Aave Pool...`);
     let approveTx = await usdc.approve(BASE_SEPOLIA.aavePool, SUPPLY_AMOUNT);
     await approveTx.wait();
@@ -164,14 +164,14 @@ async function main() {
     // STEP 3: Supply USDC to Aave
     // ========================================================================
     logStep(3, "Supply USDC to Aave V3 Pool", "\x1b[33m");
-    
+
     const aavePoolABI = [
       "function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external",
       "function withdraw(address asset, uint256 amount, address to) external returns (uint256)",
     ];
-    
+
     const aavePool = new ethers.Contract(BASE_SEPOLIA.aavePool, aavePoolABI, signer);
-    
+
     console.log(`Supplying ${ethers.formatUnits(SUPPLY_AMOUNT, 6)} USDC to Aave...`);
     /*let supplyTx = await aavePool.supply(BASE_SEPOLIA.usdc, SUPPLY_AMOUNT, signerAddress, 0);
     await supplyTx.wait();
@@ -189,22 +189,22 @@ async function main() {
     // STEP 4: Wrap aUSDC into WaUSDC
     // ========================================================================
     logStep(4, "Wrap aUSDC into WaUSDC", "\x1b[33m");
-    
+
     const waUSDCABI = [
       "function deposit(uint256 assets, address receiver) external returns (uint256)",
       "function balanceOf(address) external view returns (uint256)",
       "function approve(address spender, uint256 amount) external returns (bool)"
     ];
-    
+
     const waUSDC = new ethers.Contract(CONTRACT_ADDRESSES.waUSDC, waUSDCABI, signer);
-    
+
     // Get aUSDC balance
     const aUsdcBalance = await aUsdc.balanceOf(signerAddress);
     console.log(`Approving aUSDC to WaUSDC wrapper...`);
     approveTx = await aUsdc.approve(CONTRACT_ADDRESSES.waUSDC, aUsdcBalance);
     await approveTx.wait();
     console.log(`✓ Approval confirmed (${approveTx.hash})`);
-    
+
     console.log(`Wrapping ${ethers.formatUnits(aUsdcBalance, 6)} aUSDC into WaUSDC...`);
     /*const depositTx = await waUSDC.deposit(aUsdcBalance, signerAddress);
     await depositTx.wait();
@@ -216,7 +216,7 @@ async function main() {
     // STEP 5: Approve WaUSDC to Morpho Blue
     // ========================================================================
     logStep(5, "Approve WaUSDC for Morpho Collateral", "\x1b[33m");
-    
+
     console.log(`Approving WaUSDC to Morpho Blue...`);
     const approveForMorphoTx = await waUSDC.approve(BASE_SEPOLIA.morphoBlue, waUsdcBalance);
     await approveForMorphoTx.wait();
@@ -226,17 +226,17 @@ async function main() {
     // STEP 6: Supply WaUSDC as Collateral to Morpho
     // ========================================================================
     logStep(6, "Supply WaUSDC as Collateral to Morpho Blue", "\x1b[33m");
-    
+
     const morphoABI = [
       "function supplyCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, bytes data) external",
       "function position(bytes32 id, address user) external view returns (tuple(uint256,uint256,uint256))",
       "function borrow(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver) external returns (uint256, uint256)",
       "function repay(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data) external returns (uint256, uint256)",
-      "function withdrawCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address receiver) external",
+      "function withdrawCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, address receiver) external",
     ];
-    
+
     const morpho = new ethers.Contract(BASE_SEPOLIA.morphoBlue, morphoABI, signer);
-    
+
     // Create market params
     const marketParams = [
       CONTRACT_ADDRESSES.mockCCOP,     // loanToken
@@ -245,7 +245,7 @@ async function main() {
       "0x46415998764C29aB2a25CbeA6254146D50D22687", // irm (default)
       ethers.parseEther("0.77"),       // lltv (77%)
     ];
-    
+
     console.log(`Supplying ${ethers.formatUnits(waUsdcBalance, 6)} WaUSDC as collateral...`);
     /*const supplyCollateralTx = await morpho.supplyCollateral(marketParams, waUsdcBalance, signerAddress, "0x");
     await supplyCollateralTx.wait();
@@ -259,7 +259,7 @@ async function main() {
     // STEP 7: Borrow cCOP_test from Morpho
     // ========================================================================
     logStep(7, "Borrow cCOP_test from Morpho Blue", "\x1b[33m");
-    
+
     /*console.log(`Borrowing ${ethers.formatUnits(BORROW_AMOUNT, 6)} cCOP_test...`);
     const borrowTx = await morpho.borrow(
       marketParams,
@@ -279,20 +279,20 @@ async function main() {
     // STEP 8: Repay cCOP_test Loan
     // ========================================================================
     logStep(8, "Repay cCOP_test Loan", "\x1b[33m");
-    
+
     // Get current position to check borrowShares
     const positionBeforeRepay = await morpho.position(MARKET_ID, signerAddress);
     const borrowShares = positionBeforeRepay[1]; // borrowShares is the second element
-    
+
     console.log(`Current borrow shares: ${borrowShares.toString()}`);
-    
+
     // Calculate actual debt
     const debtAssets = await calculateDebtFromShares(morpho, MARKET_ID, borrowShares);
     console.log(`Calculated debt: ${ethers.formatUnits(debtAssets, 6)} cCOP`);
-    
+
     const ccopBalance = await ccop.balanceOf(signerAddress);
     console.log(`Available cCOP balance: ${ethers.formatUnits(ccopBalance, 6)}`);
-    
+
     // If balance is 0 but we have debt, need to handle it
     if (borrowShares === 0n) {
       console.log(`✓ No outstanding debt`);
@@ -304,12 +304,12 @@ async function main() {
     } else {
       // Repay using shares directly to avoid arithmetic issues
       // Pass borrowShares and 0 assets to repay the exact shares owed
-      
+
       console.log(`Approving cCOP to Morpho for repayment...`);
       const approveCcopTx = await ccop.approve(BASE_SEPOLIA.morphoBlue, ccopBalance);
       await approveCcopTx.wait();
       console.log(`✓ Approval confirmed (${approveCcopTx.hash})`);
-      
+
       console.log(`Repaying ${ethers.formatUnits(debtAssets, 6)} cCOP (${borrowShares.toString()} shares)...`);
       const repayTx = await morpho.repay(
         marketParams,
@@ -320,7 +320,7 @@ async function main() {
       );
       await repayTx.wait();
       console.log(`✓ Repayment confirmed (${repayTx.hash})`);
-      
+
       // Check updated position
       const positionAfterRepay = await morpho.position(MARKET_ID, signerAddress);
       const borrowSharesAfter = positionAfterRepay[1];
@@ -330,57 +330,62 @@ async function main() {
     // STEP 9: Withdraw WaUSDC Collateral from Morpho
     // ========================================================================
     logStep(9, "Withdraw WaUSDC Collateral from Morpho", "\x1b[33m");
-    
+
     const updatedPosition = await morpho.position(MARKET_ID, signerAddress);
     let collateralToWithdraw = updatedPosition[2];
-    console.log("positionAfterRepay:",updatedPosition);
-    
+    console.log("positionAfterRepay:", updatedPosition);
+
     console.log(`Withdrawing ${ethers.formatUnits(collateralToWithdraw, 6)} WaUSDC from Morpho...`);
-    
+
     // Handle potential precision issues by reducing withdrawal amount by 1 wei if needed
     try {
       const withdrawCollateralTx = await morpho.withdrawCollateral(
         marketParams,
         collateralToWithdraw,
+        signerAddress,
         signerAddress
       );
       await withdrawCollateralTx.wait();
       console.log(`✓ Withdrawal confirmed (${withdrawCollateralTx.hash})`);
     } catch (error: any) {
-      console.log(`⚠ Withdrawal failed with full amount, trying with reduced amount...`);
+      console.log(`⚠ Withdrawal failed...`);
       // Reduce by 1 wei to handle rounding issues
-      const reducedAmount = collateralToWithdraw - 1n;
+      /*const reducedAmount = collateralToWithdraw - 1n;
       console.log(`Retrying withdrawal with ${ethers.formatUnits(reducedAmount, 6)} WaUSDC...`);
-      
+
       const withdrawCollateralTx = await morpho.withdrawCollateral(
         marketParams,
         reducedAmount,
+        signerAddress,
         signerAddress
       );
       await withdrawCollateralTx.wait();
       console.log(`✓ Withdrawal confirmed (${withdrawCollateralTx.hash})`);
-      collateralToWithdraw = reducedAmount;
+      collateralToWithdraw = reducedAmount;*/
     }
 
     await getBalance(waUSDC, signerAddress, "WaUSDC");
 
-    
+
 
     // ========================================================================
     // STEP 10: Unwrap WaUSDC back to aUSDC
     // ========================================================================
     logStep(10, "Unwrap WaUSDC back to aUSDC", "\x1b[33m");
-    
+
     const waUsdcFinalBalance = await waUSDC.balanceOf(signerAddress);
     console.log(`Redeeming ${ethers.formatUnits(waUsdcFinalBalance, 6)} WaUSDC for aUSDC...`);
-    
+
     const redeemABI = ["function redeem(uint256 shares, address receiver, address owner) external returns (uint256)"];
     const waUsdcRedeem = new ethers.Contract(CONTRACT_ADDRESSES.waUSDC, redeemABI, signer);
-    return;
 
-    const redeemTx = await waUsdcRedeem.redeem(waUsdcFinalBalance, signerAddress, signerAddress);
-    await redeemTx.wait();
-    console.log(`✓ Redeem confirmed (${redeemTx.hash})`);
+    try {
+      const redeemTx = await waUsdcRedeem.redeem(waUsdcFinalBalance, signerAddress, signerAddress);
+      await redeemTx.wait();
+      console.log(`✓ Redeem confirmed (${redeemTx.hash})`);
+    } catch (error: any) {
+      console.log(`⚠ Redeem failed...`);
+    }
 
     const aUsdcFinal = await getBalance(aUsdc, signerAddress, "aUSDC");
 
@@ -388,8 +393,10 @@ async function main() {
     // STEP 11: Withdraw from Aave
     // ========================================================================
     logStep(11, "Withdraw from Aave Pool", "\x1b[33m");
-    
+
     console.log(`Withdrawing ${ethers.formatUnits(aUsdcFinal, 6)} aUSDC from Aave...`);
+    
+
     const withdrawTx = await aavePool.withdraw(BASE_SEPOLIA.usdc, aUsdcFinal, signerAddress);
     await withdrawTx.wait();
     console.log(`✓ Withdrawal confirmed (${withdrawTx.hash})`);
