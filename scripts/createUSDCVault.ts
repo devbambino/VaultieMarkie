@@ -36,6 +36,47 @@ const VAULT_CONFIG = {
     supplyCapAmount: ethers.parseUnits("1000000000", 6), // 1 billion USDC cap
 };
 
+// ============================================================================
+// UPDATE THESE ADDRESSES AFTER DEPLOYMENT
+// ============================================================================
+const CONTRACT_ADDRESSES = {
+  USDC: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f", // From deploy.ts output
+  ETH: "0x1DA5199ecaAe23F85c7fd7611703E81273041149",   // From deploy.ts output
+  fixedPriceOracle: "0xa8B8bBc0A572803A9153336122EBc971DeF60672", // From deploy.ts output
+};
+
+// Morpho Blue on Base Sepolia
+const MORPHO_BLUE_ADDRESS = "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb";
+
+// LLTV: 77% = 0.77 * 10^18
+const LLTV = ethers.parseEther("0.77");
+
+// Default IRM on Base Sepolia
+// Source: https://docs.morpho.org/get-started/resources/addresses
+const IRM_ADDRESS = "0x46415998764C29aB2a25CbeA6254146D50D22687";
+
+/**
+ * Morpho Blue Market struct
+ */
+interface MarketParams {
+    loanToken: string;
+    collateralToken: string;
+    oracle: string;
+    irm: string;
+    lltv: bigint;
+}
+
+/**
+ * Calculate market ID (Morpho uses hash of params as ID)
+ */
+function getMarketId(params: MarketParams): string {
+    const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["tuple(address,address,address,address,uint256)"],
+        [[params.loanToken, params.collateralToken, params.oracle, params.irm, params.lltv]]
+    );
+    return ethers.keccak256(encoded);
+}
+
 /**
  * Log helper with colors
  */
@@ -60,6 +101,107 @@ async function main() {
     console.log(`Network: ${(await ethers.provider.getNetwork()).name}`);
 
     try {
+
+        console.log("Market Parameters:");
+        console.log(`  Loan Token:      ${CONTRACT_ADDRESSES.mockCCOP}`);
+        console.log(`  Collateral:      ${CONTRACT_ADDRESSES.waUSDC}`);
+        console.log(`  Oracle:          ${CONTRACT_ADDRESSES.fixedPriceOracle}`);
+        console.log(`  IRM:             ${IRM_ADDRESS}`);
+        console.log(`  LLTV:            77% (${LLTV.toString()})`);
+        console.log("");
+
+        // Create market params object with normalized addresses
+        const marketParams: MarketParams = {
+            loanToken: ethers.getAddress(CONTRACT_ADDRESSES.mockCCOP),
+            collateralToken: ethers.getAddress(CONTRACT_ADDRESSES.waUSDC),
+            oracle: ethers.getAddress(CONTRACT_ADDRESSES.fixedPriceOracle),
+            irm: ethers.getAddress(IRM_ADDRESS),
+            lltv: LLTV,
+        };
+
+        // Calculate market ID
+        const marketId = getMarketId(marketParams);
+        console.log(`Calculated Market ID: ${marketId}`);
+        console.log("");
+
+        // Get Morpho Blue contract
+        const MORPHO_ABI = [
+            "function createMarket(tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) marketParams) external",
+            "function idToMarketParams(bytes32 id) external view returns (tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv))",
+            "function market(bytes32 id) external view returns (tuple(uint128 totalSupplyAssets,uint128 totalBorrowAssets,uint32 lastUpdate,uint32 fee,uint32 timelock,uint160 totalSupplyShares,uint128 totalBorrowShares,uint128 virtualBorrowAssetsAndFees))",
+        ];
+
+        // Vault Factory ABI - MetaMorphoV1_1Factory
+        const VAULT_FACTORY_ABI = [
+            "function createMetaMorpho(address initialOwner, uint256 initialTimelock, address asset, string memory name, string memory symbol, bytes32 salt) external returns (address)",
+        ];
+
+        // Vault ABI
+        const VAULT_ABI = [
+            "function submitCap(tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) marketParams, uint256 newSupplyCap) external",
+            "function acceptCap(tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) marketParams) external",
+            "function setSupplyQueue(bytes32[] newSupplyQueue) external",
+            "function supplyQueueLength() external view returns (uint256)",
+            "function setIsAllocator(address allocator, bool isAllocator) external",
+        ];
+
+        const morpho = new ethers.Contract(MORPHO_BLUE_ADDRESS, MORPHO_ABI, deployer);
+
+        console.log("[1/2] Checking if market already exists...");
+        let marketExists = false;
+        let receipt: any = null;
+        try {
+            const existingParams = await morpho.idToMarketParams(marketId);
+            if (existingParams.loanToken !== ethers.ZeroAddress) {
+                console.log("✓ Market already exists! Details:");
+                console.log(`  Loan Token:  ${existingParams.loanToken}`);
+                console.log(`  Collateral:  ${existingParams.collateralToken}`);
+                console.log(`  Oracle:      ${existingParams.oracle}`);
+                console.log(`  IRM:         ${existingParams.irm}`);
+                console.log(`  LLTV:        ${existingParams.lltv.toString()}`);
+                console.log("");
+                marketExists = true;
+            }
+        } catch (e) {
+            // Market doesn't exist yet, continue with creation
+        }
+
+        if (!marketExists) {
+            console.log("[2/2] Creating market on Morpho Blue...");
+            const tx = await morpho.createMarket(marketParams);
+            receipt = await tx.wait();
+
+            console.log(`✓ Market creation transaction confirmed!`);
+            console.log(`  Transaction Hash: ${receipt?.hash}`);
+            console.log(`  Block Number: ${receipt?.blockNumber}`);
+            console.log(`  Gas Used: ${receipt?.gasUsed}`);
+            console.log("");
+
+            // Verify market was created
+            console.log("Verifying market creation...");
+            try {
+                const marketData = await morpho.market(marketId);
+                console.log("✓ Market verified on chain:");
+                console.log(`  Market ID: ${marketId}`);
+                console.log(`  Market data: ${JSON.stringify(marketData)}`);
+            } catch (e) {
+                console.log("✓ Market created successfully!");
+                console.log(`  Market ID: ${marketId}`);
+                console.log("  (Note: Could not verify full market data, but transaction was confirmed)");
+            }
+            console.log("");
+        }
+
+        // ============================================================================
+        // Summary
+        // ============================================================================
+        console.log("=".repeat(70));
+        console.log("MARKET CREATION COMPLETE");
+        console.log("=".repeat(70));
+        console.log("");
+
+
+
         logSection("Vault Configuration");
         console.log(`Name:              ${VAULT_CONFIG.name}`);
         console.log(`Symbol:            ${VAULT_CONFIG.symbol}`);
