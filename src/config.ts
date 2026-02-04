@@ -8,19 +8,19 @@ export const BASE_SEPOLIA_CONFIG = {
   rpcUrl: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
   blockExplorer: "https://sepolia.basescan.org",
 
-  // Aave V3 Protocol
-  aavePool: "0x7B4eb56E7CD4eFc5c4D044DBC3917eB21f3d5dAE", // Aave V3 Pool on Base Sepolia
-  aavePoolAddressesProvider: "0x8145 dd7D7c92cDed64A766c00000BcE75fF9E7f3",
+  // Morpho Blue V1
+  morphoBlue: "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
   
   // USDC Token (Base Sepolia)
   usdc: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
   
-  // aToken (Interest-bearing USDC from Aave)
-  aUSDC: "0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc", // aBasSepLidUSDC
+  // Morpho USDC Vault (to be created using Vault Factory)
+  morphoUSDCVault: "0x0000000000000000000000000000000000000000", // UPDATE AFTER VAULT CREATION
 
-  // Morpho Blue V1
-  morphoBlue: "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
-  
+  // Morpho Vault Factory
+  // MetaMorphoV1_1Factory on Base Sepolia
+  morphoVaultFactory: "0x2c3FE6D71F8d54B063411Abb446B49f13725F784",
+
   // Morpho default IRM (permissionless)
   // This is typically a simple IRM that allows custom rates
   // For this PoC, we'll use Morpho's default or deploy our own simple one
@@ -43,13 +43,29 @@ export interface MarketParams {
 }
 
 /**
- * Aave Pool Interface
+ * Aave Pool Interface (DEPRECATED - No longer used, kept for reference)
  * Key function signatures for USDC supply/withdraw
  */
 export const AAVE_POOL_ABI = [
   "function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external",
   "function withdraw(address asset, uint256 amount, address to) external returns (uint256)",
   "function getReserveData(address asset) external view returns (tuple(tuple(uint256,uint128,uint128,uint128,uint128,uint128,uint40,uint16,address,address,address,address,bool) configuration,uint128 liquidityIndex,uint128 currentLiquidityRate,uint128 variableBorrowIndex,uint128 currentVariableBorrowRate,uint128 currentStableBorrowRate,uint40 lastUpdateTimestamp,uint16 id,address aTokenAddress,address stableDebtTokenAddress,address variableDebtTokenAddress,address interestRateStrategyAddress,bool isActive))",
+];
+
+/**
+ * Morpho Vault Interface
+ * Key function signatures for Morpho Vault USDC supply/withdraw
+ */
+export const MORPHO_VAULT_ABI = [
+  "function deposit(uint256 assets, address receiver) external returns (uint256)",
+  "function withdraw(uint256 assets, address receiver, address owner) external returns (uint256)",
+  "function mint(uint256 shares, address receiver) external returns (uint256)",
+  "function redeem(uint256 shares, address receiver, address owner) external returns (uint256)",
+  "function totalAssets() external view returns (uint256)",
+  "function convertToShares(uint256 assets) external view returns (uint256)",
+  "function convertToAssets(uint256 shares) external view returns (uint256)",
+  "function balanceOf(address account) external view returns (uint256)",
+  "function approve(address spender, uint256 amount) external returns (bool)",
 ];
 
 /**

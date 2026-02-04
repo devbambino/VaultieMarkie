@@ -8,22 +8,22 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title WaUSDC
- * @notice ERC-4626 wrapper around Aave aUSDC token
+ * @notice ERC-4626 wrapper around Morpho Vault token (vaultUSDC)
  * @dev
- * - Underlying asset: aUSDC (Aave's interest-bearing USDC)
+ * - Underlying asset: vaultUSDC (Morpho's interest-bearing USDC Vault)
  * - Wrapper shares are non-rebasing
- * - Price per share increases as Aave accrues yield
- * - totalAssets() returns the wrapper's aUSDC balance
+ * - Price per share increases as Morpho Vault accrues yield
+ * - totalAssets() returns the wrapper's vaultUSDC balance
  *
  * Flow:
- * 1. User deposits aUSDC into this vault
+ * 1. User deposits vaultUSDC into this vault
  * 2. User receives WaUSDC shares (non-rebasing)
- * 3. As Aave accrues interest, totalAssets() increases
- * 4. User can redeem shares for more aUSDC than originally deposited
+ * 3. As Morpho Vault accrues interest, totalAssets() increases
+ * 4. User can redeem shares for more vaultUSDC than originally deposited
  */
 contract WaUSDC is ERC20, ERC4626, Ownable {
-    // Reference to the underlying Aave aToken
-    IERC20 private immutable _aUSDC;
+    // Reference to the underlying Morpho Vault token
+    IERC20 private immutable _vaultUSDC;
 
     // Events
     event Deposited(address indexed user, uint256 assets, uint256 shares);
@@ -31,26 +31,26 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
 
     /**
      * @notice Initialize the WaUSDC wrapper
-     * @param aUSDC_ Address of Aave's aUSDC token
+     * @param vaultUSDC_ Address of Morpho's USDC Vault token
      */
-    constructor(address aUSDC_) 
-        ERC20("Wrapped Aave USDC", "WaUSDC")
-        ERC4626(IERC20(aUSDC_))
+    constructor(address vaultUSDC_) 
+        ERC20("Wrapped Morpho Vault USDC", "WaUSDC")
+        ERC4626(IERC20(vaultUSDC_))
         Ownable(msg.sender)
     {
-        require(aUSDC_ != address(0), "Invalid aUSDC address");
-        _aUSDC = IERC20(aUSDC_);
+        require(vaultUSDC_ != address(0), "Invalid vaultUSDC address");
+        _vaultUSDC = IERC20(vaultUSDC_);
     }
 
     /**
      * @notice Get the total number of assets managed by this vault
-     * @return Total aUSDC balance held by this contract
-     * @dev This is critical: as Aave accrues yield, this balance grows
+     * @return Total vaultUSDC balance held by this contract
+     * @dev This is critical: as Morpho Vault accrues yield, this balance grows
      */
     function totalAssets() public view override returns (uint256) {
-        // Return the current balance of aUSDC held by this contract
-        // This includes both principal and accrued Aave interest
-        return _aUSDC.balanceOf(address(this));
+        // Return the current balance of vaultUSDC held by this contract
+        // This includes both principal and accrued Morpho Vault interest
+        return _vaultUSDC.balanceOf(address(this));
     }
 
     /**
@@ -62,8 +62,8 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
     }
 
     /**
-     * @notice Deposit aUSDC and receive non-rebasing WaUSDC shares
-     * @param assets Amount of aUSDC to deposit
+     * @notice Deposit vaultUSDC and receive non-rebasing WaUSDC shares
+     * @param assets Amount of vaultUSDC to deposit
      * @param receiver Address to receive shares
      * @return shares Shares minted
      */
@@ -78,9 +78,9 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
         // Calculate shares: assets / price per share
         shares = previewDeposit(assets);
         
-        // Transfer aUSDC from caller to this contract
+        // Transfer vaultUSDC from caller to this contract
         require(
-            _aUSDC.transferFrom(msg.sender, address(this), assets),
+            _vaultUSDC.transferFrom(msg.sender, address(this), assets),
             "Transfer failed"
         );
         
@@ -94,9 +94,9 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
     }
 
     /**
-     * @notice Withdraw aUSDC by burning WaUSDC shares
-     * @param assets Amount of aUSDC to withdraw
-     * @param receiver Address to receive aUSDC
+     * @notice Withdraw vaultUSDC by burning WaUSDC shares
+     * @param assets Amount of vaultUSDC to withdraw
+     * @param receiver Address to receive vaultUSDC
      * @param owner Address whose shares are burned
      * @return shares Shares burned
      */
@@ -120,8 +120,8 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
         
         _burn(owner, shares);
         
-        // Transfer aUSDC to receiver
-        require(_aUSDC.transfer(receiver, assets), "Transfer failed");
+        // Transfer vaultUSDC to receiver
+        require(_vaultUSDC.transfer(receiver, assets), "Transfer failed");
         
         emit Withdrawn(owner, assets, shares);
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
@@ -130,10 +130,10 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
     }
 
     /**
-     * @notice Mint WaUSDC shares by providing aUSDC
+     * @notice Mint WaUSDC shares by providing vaultUSDC
      * @param shares Amount of shares to mint
      * @param receiver Address to receive shares
-     * @return assets Amount of aUSDC required
+     * @return assets Amount of vaultUSDC required
      */
     function mint(uint256 shares, address receiver)
         public
@@ -146,7 +146,7 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
         assets = previewMint(shares);
         
         require(
-            _aUSDC.transferFrom(msg.sender, address(this), assets),
+            _vaultUSDC.transferFrom(msg.sender, address(this), assets),
             "Transfer failed"
         );
         
@@ -158,11 +158,11 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
     }
 
     /**
-     * @notice Redeem WaUSDC shares for aUSDC
+     * @notice Redeem WaUSDC shares for vaultUSDC
      * @param shares Amount of shares to redeem
-     * @param receiver Address to receive aUSDC
+     * @param receiver Address to receive vaultUSDC
      * @param owner Address whose shares are burned
-     * @return assets Amount of aUSDC returned
+     * @return assets Amount of vaultUSDC returned
      */
     function redeem(uint256 shares, address receiver, address owner)
         public
@@ -182,7 +182,7 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
         
         _burn(owner, shares);
         
-        require(_aUSDC.transfer(receiver, assets), "Transfer failed");
+        require(_vaultUSDC.transfer(receiver, assets), "Transfer failed");
         
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
         
@@ -190,8 +190,8 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
     }
 
     /**
-     * @notice Preview how many shares would be minted for a given amount of aUSDC
-     * @param assets Amount of aUSDC to deposit
+     * @notice Preview how many shares would be minted for a given amount of vaultUSDC
+     * @param assets Amount of vaultUSDC to deposit
      * @return Shares that would be minted
      */
     function previewDeposit(uint256 assets)
@@ -207,8 +207,8 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
     }
 
     /**
-     * @notice Preview how many aUSDC would be withdrawn for a given number of shares
-     * @param assets Amount of aUSDC to withdraw
+     * @notice Preview how many vaultUSDC would be withdrawn for a given number of shares
+     * @param assets Amount of vaultUSDC to withdraw
      * @return Shares that would be burned
      */
     function previewWithdraw(uint256 assets)
@@ -224,7 +224,7 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
     }
 
     /**
-     * @notice Preview how many aUSDC would be needed to mint given shares
+     * @notice Preview how many vaultUSDC would be needed to mint given shares
      * @param shares Amount of shares to mint
      * @return Assets required
      */
@@ -240,7 +240,7 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
     }
 
     /**
-     * @notice Preview how many aUSDC would be returned for redeeming shares
+     * @notice Preview how many vaultUSDC would be returned for redeeming shares
      * @param shares Amount of shares to redeem
      * @return Assets that would be returned
      */
