@@ -1,14 +1,14 @@
-# Aave V3 + Morpho Blue V1 Proof-of-Concept (PoC)
+# Morpho Blue V1 Proof-of-Concept (PoC)
 
-A complete end-to-end demonstration of **yield generation** via **Aave V3** and **collateralized lending** via **Morpho Blue V1** on **Base Sepolia testnet**.
+A complete end-to-end demonstration of **yield generation** via **Morpho Blue V1** via **collateralized lending** on **Base Sepolia testnet**.
 
-## Overview
+## Overviews
 
 This PoC demonstrates the complete lifecycle of DeFi composability:
 
-1. **Supply USDC to Aave** → Earn yield via aUSDC (interest-bearing token)
-2. **Wrap aUSDC into WaUSDC** → ERC-4626 vault with non-rebasing shares
-3. **Supply WaUSDC as collateral to Morpho** → Use wrapped yield as backing
+1. **Supply USDC to Morpho** → Earn yield via hyperUSDC (interest-bearing token)
+2. **Wrap hyperUSDC into waUSDC** → ERC-4626 vault with non-rebasing shares
+3. **Supply waUSDC as collateral to Morpho** → Use wrapped yield as backing
 4. **Borrow cCOP_test from Morpho** → Access liquidity
 5. **Repay loan** → Settle borrowing position
 6. **Withdraw & unwrap** → Convert back to USDC with accrued yield
@@ -16,7 +16,7 @@ This PoC demonstrates the complete lifecycle of DeFi composability:
 ### Key Features
 
 - ✅ **Direct contract interaction** using ethers.js v6 and explicit ABIs
-- ✅ **ERC-4626 compliant wrapper** around Aave aToken
+- ✅ **ERC-4626 compliant wrapper** around Morpho Vault Token
 - ✅ **Morpho Blue market creation** programmatically
 - ✅ **No SDK abstractions** — pure smart contract calls
 - ✅ **Frontend UI** for wallet integration and transaction tracking
