@@ -40,8 +40,8 @@ const VAULT_CONFIG = {
 // UPDATE THESE ADDRESSES AFTER DEPLOYMENT
 // ============================================================================
 const CONTRACT_ADDRESSES = {
-  USDC: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f", // From deploy.ts output
-  ETH: "0x1DA5199ecaAe23F85c7fd7611703E81273041149",   // From deploy.ts output
+  USDC: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f", // with 6 decimals, From deploy.ts output
+  WETH: "0x4200000000000000000000000000000000000006",   // WETH with 18 decimals, From deploy.ts output
   fixedPriceOracle: "0xa8B8bBc0A572803A9153336122EBc971DeF60672", // From deploy.ts output
 };
 
@@ -103,8 +103,8 @@ async function main() {
     try {
 
         console.log("Market Parameters:");
-        console.log(`  Loan Token:      ${CONTRACT_ADDRESSES.mockCCOP}`);
-        console.log(`  Collateral:      ${CONTRACT_ADDRESSES.waUSDC}`);
+        console.log(`  Loan Token:      ${CONTRACT_ADDRESSES.USDC}`);
+        console.log(`  Collateral:      ${CONTRACT_ADDRESSES.WETH}`);
         console.log(`  Oracle:          ${CONTRACT_ADDRESSES.fixedPriceOracle}`);
         console.log(`  IRM:             ${IRM_ADDRESS}`);
         console.log(`  LLTV:            77% (${LLTV.toString()})`);
@@ -112,8 +112,8 @@ async function main() {
 
         // Create market params object with normalized addresses
         const marketParams: MarketParams = {
-            loanToken: ethers.getAddress(CONTRACT_ADDRESSES.mockCCOP),
-            collateralToken: ethers.getAddress(CONTRACT_ADDRESSES.waUSDC),
+            loanToken: ethers.getAddress(CONTRACT_ADDRESSES.USDC),
+            collateralToken: ethers.getAddress(CONTRACT_ADDRESSES.WETH),
             oracle: ethers.getAddress(CONTRACT_ADDRESSES.fixedPriceOracle),
             irm: ethers.getAddress(IRM_ADDRESS),
             lltv: LLTV,
@@ -209,11 +209,6 @@ async function main() {
         console.log(`Initial Timelock:  ${VAULT_CONFIG.initialTimelock} seconds`);
         console.log(`Supply Cap:        ${ethers.formatUnits(VAULT_CONFIG.supplyCapAmount, 6)} USDC`);
 
-        // Vault Factory ABI
-        const VAULT_FACTORY_ABI = [
-            "function createMetaMorpho(address initialOwner, uint256 initialTimelock, address asset, string memory name, string memory symbol, bytes32 salt) external returns (address)",
-        ];
-
         const vaultFactory = new ethers.Contract(
             VAULT_FACTORY_ADDRESS,
             VAULT_FACTORY_ABI,
@@ -240,16 +235,16 @@ async function main() {
         console.log(`Transaction Hash: ${tx.hash}`);
         console.log("Waiting for confirmation...");
 
-        const receipt = await tx.wait();
-        console.log(`✓ Vault creation confirmed in block ${receipt?.blockNumber}`);
-        console.log(`Gas Used: ${receipt?.gasUsed}`);
+        const vaultReceipt = await tx.wait();
+        console.log(`✓ Vault creation confirmed in block ${vaultReceipt?.blockNumber}`);
+        console.log(`Gas Used: ${vaultReceipt?.gasUsed}`);
 
         // Extract vault address from transaction logs
         const vaultFactory_iface = new ethers.Interface(VAULT_FACTORY_ABI);
         let vaultAddress: string | null = null;
 
-        if (receipt?.logs) {
-            for (const log of receipt.logs) {
+        if (vaultReceipt?.logs) {
+            for (const log of vaultReceipt.logs) {
                 try {
                     // Try to parse using the factory interface
                     const parsed = vaultFactory_iface.parseLog(log);
@@ -292,10 +287,10 @@ async function main() {
         if (!vaultAddress) {
             console.log("Note: Vault address not found in logs directly, attempting alternative detection...");
             // Log all topics for debugging
-            if (receipt?.logs && receipt.logs.length > 0) {
-                console.log(`Received ${receipt.logs.length} logs from transaction`);
-                for (let i = 0; i < Math.min(3, receipt.logs.length); i++) {
-                    console.log(`  Log ${i}: topic[0] = ${receipt.logs[i].topics[0]}`);
+            if (vaultReceipt?.logs && vaultReceipt.logs.length > 0) {
+                console.log(`Received ${vaultReceipt.logs.length} logs from transaction`);
+                for (let i = 0; i < Math.min(3, vaultReceipt.logs.length); i++) {
+                    console.log(`  Log ${i}: topic[0] = ${vaultReceipt.logs[i].topics[0]}`);
                 }
             }
         } else {
