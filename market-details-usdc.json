@@ -1,0 +1,18 @@
+{
+  "marketId": "0x542fb92e3de62b2e225464daf341bd4be4aa4c2f78dbe400db366e30d0bcc0cb",
+  "vaultAddress": "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9",
+  "loanToken": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+  "collateralToken": "0x1ddebA64A8B13060e13d15504500Dd962eECD35B",
+  "oracle": "0x3A19A14c709cf798E330277ed942475EBadAC74E",
+  "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
+  "lltv": "770000000000000000",
+  "vaultConfig": {
+    "name": "Morpho USDC Vault",
+    "symbol": "mUSDC",
+    "initialTimelock": 0,
+    "supplyCapAmount": "100000000000000"
+  },
+  "vaultBlockNumber": 37443335,
+  "vaultTransactionHash": "0xec9d15f8fa030a9007233f549b40aa1317c21c4c1d9dddb52319bbb5082191fe",
+  "timestamp": 1768617586633
+}

@@ -6,7 +6,8 @@
  * 2. WaUSDC - ERC-4626 wrapper around Aave aUSDC
  * 3. FixedPriceOracle - Simple oracle for Morpho Blue
  * 
- * Run: npx hardhat run scripts/deploy.ts --network baseSepolia
+ * Run: npm run deploy
+ * npx hardhat run scripts/deploy.ts --network baseSepolia
  * 
  * After deployment, copy the addresses to:
  * 1. src/config.ts (update MOCK_CCOP, WA_USDC, FIXED_PRICE_ORACLE)
@@ -18,16 +19,18 @@ import * as fs from "fs";
 import * as path from "path";
 
 interface DeployedAddresses {
-  mockCCOP: string;
-  waUSDC: string;
-  fixedPriceOracle: string;
+  mockMXNB: string;
+  mockWETH: string;
+  wmUSDC: string;
+  wmusdcMxnbOracle: string;
+  ethUsdcOracle: string;
   deployer: string;
   timestamp: number;
 }
 
 async function main() {
   console.log("=".repeat(70));
-  console.log("Deploying Aave + Morpho Blue PoC Contracts");
+  console.log("Deploying Morpho Blue PoC Contracts");
   console.log("=".repeat(70));
 
   // Get deployer account
@@ -40,60 +43,89 @@ async function main() {
   console.log("");
 
   const deployedAddresses: DeployedAddresses = {
-    mockCCOP: "",
-    waUSDC: "",
-    fixedPriceOracle: "",
+    mockMXNB: "",
+    mockWETH: "",
+    wmUSDC: "",
+    wmusdcMxnbOracle: "",
+    ethUsdcOracle: "",
     deployer: deployer.address,
     timestamp: Date.now(),
   };
 
   try {
+
     // ============================================================================
-    // 1. Deploy MockCCOP
+    // 1. Prerequisites
     // ============================================================================
-    console.log("[1/3] Deploying MockCCOP...");
-    const MockCCOP = await ethers.getContractFactory("MockCCOP");
-    const mockCCOP = await MockCCOP.deploy();
-    await mockCCOP.waitForDeployment();
-    const mockCCOPAddress = await mockCCOP.getAddress();
-    deployedAddresses.mockCCOP = mockCCOPAddress;
-    console.log(`✓ MockCCOP deployed at: ${mockCCOPAddress}`);
-    console.log(`  - Name: cCOP_test`);
-    console.log(`  - Symbol: cCOP`);
-    console.log(`  - Decimals: 6`);
+    console.log("[1/3] Deploying MockWETH...");
+    /*const MockWETH = await ethers.getContractFactory("MockWETH");
+    const mockWETH = await MockWETH.deploy();
+    await mockWETH.waitForDeployment();
+    const mockWETHAddress = await mockWETH.getAddress();
+    deployedAddresses.mockWETH = mockWETHAddress;
+    console.log(`✓ mockWETH deployed at: ${mockWETHAddress}`);
+    console.log(`  - Name: wETH_test`);
+    console.log(`  - Symbol: wETH`);
+    console.log(`  - Decimals: 18`);
+    console.log("");
+
+    console.log("[2/3] Deploying ethUsdcOracle...");
+    const EthUsdcOracle = await ethers.getContractFactory("EthUsdcOracle");
+    const ethUsdcOracle = await EthUsdcOracle.deploy();
+    await ethUsdcOracle.waitForDeployment();
+    const oracle1Address = await ethUsdcOracle.getAddress();
+    deployedAddresses.ethUsdcOracle = oracle1Address;
+    console.log(`✓ EthUsdcOracle deployed at: ${oracle1Address}`);
+    console.log(`  - Price: 2100 * 1e33 (1 WETH = 2100 WETH_test)`);
     console.log("");
 
     // ============================================================================
-    // 2. Deploy WaUSDC
+    // 1. Deploy MockMXNB
     // ============================================================================
-    console.log("[2/3] Deploying WaUSDC...");
-    
-    // Aave aUSDC address on Base Sepolia
-    const AUSDC_ADDRESS = "0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc";
-    
-    const WaUSDC = await ethers.getContractFactory("WaUSDC");
-    const waUSDC = await WaUSDC.deploy(AUSDC_ADDRESS);
-    await waUSDC.waitForDeployment();
-    const waUSDCAddress = await waUSDC.getAddress();
-    deployedAddresses.waUSDC = waUSDCAddress;
-    console.log(`✓ WaUSDC deployed at: ${waUSDCAddress}`);
-    console.log(`  - Name: Wrapped Aave USDC`);
-    console.log(`  - Symbol: WaUSDC`);
+    console.log("[3/3] Deploying MockMXNB...");
+    const MockMXNB = await ethers.getContractFactory("MockMXNB");
+    const mockMXNB = await MockMXNB.deploy();
+    await mockMXNB.waitForDeployment();
+    const mockMXNBAddress = await mockMXNB.getAddress();
+    deployedAddresses.mockMXNB = mockMXNBAddress;
+    console.log(`✓ MockMXNB deployed at: ${mockMXNBAddress}`);
+    console.log(`  - Name: MXNB_test`);
+    console.log(`  - Symbol: MXNB`);
     console.log(`  - Decimals: 6`);
-    console.log(`  - Underlying: ${AUSDC_ADDRESS}`);
     console.log("");
 
+
+    // ============================================================================
+    // 2. Deploy WmUSDC
+    // ============================================================================
+    console.log("[2/3] Deploying WmUSDC...");
+    
+    // Morpho USDC Vault mUSDC address on Base Sepolia
+    const MUSDC_ADDRESS = "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9";
+    
+    const WmUSDC = await ethers.getContractFactory("WmUSDC");
+    const wmUSDC = await WmUSDC.deploy(MUSDC_ADDRESS);
+    await wmUSDC.waitForDeployment();
+    const wmUSDCAddress = await wmUSDC.getAddress();
+    deployedAddresses.wmUSDC = wmUSDCAddress;
+    console.log(`✓ WmUSDC deployed at: ${wmUSDCAddress}`);
+    console.log(`  - Name: Wrapped Morpho USDC`);
+    console.log(`  - Symbol: WmUSDC`);
+    console.log(`  - Decimals: 18`);
+    console.log(`  - Underlying: ${MUSDC_ADDRESS}`);
+    console.log("");
+*/
     // ============================================================================
     // 3. Deploy FixedPriceOracle
     // ============================================================================
-    console.log("[3/3] Deploying FixedPriceOracle...");
-    const FixedPriceOracle = await ethers.getContractFactory("FixedPriceOracle");
+    console.log("[3/3] Deploying WmusdcMxnbOracle...");
+    const FixedPriceOracle = await ethers.getContractFactory("WmusdcMxnbOracle");
     const fixedPriceOracle = await FixedPriceOracle.deploy();
     await fixedPriceOracle.waitForDeployment();
     const oracleAddress = await fixedPriceOracle.getAddress();
-    deployedAddresses.fixedPriceOracle = oracleAddress;
+    deployedAddresses.wmusdcMxnbOracle = oracleAddress;
     console.log(`✓ FixedPriceOracle deployed at: ${oracleAddress}`);
-    console.log(`  - Price: 1e36 (1 WaUSDC = 1 cCOP_test)`);
+    console.log(`  - Price: 1e48 (1 WmUSDC = 1 MXNB_test)`);
     console.log("");
 
     // ============================================================================
@@ -104,9 +136,9 @@ async function main() {
     console.log("=".repeat(70));
     console.log("");
     console.log("Deployed Addresses:");
-    console.log(`  MockCCOP:         ${deployedAddresses.mockCCOP}`);
-    console.log(`  WaUSDC:           ${deployedAddresses.waUSDC}`);
-    console.log(`  FixedPriceOracle: ${deployedAddresses.fixedPriceOracle}`);
+    console.log(`  MockMXNB         ${deployedAddresses.mockMXNB}`);
+    console.log(`  WmUSDC:           ${deployedAddresses.wmUSDC}`);
+    console.log(`  WmusdcMxnbOracle: ${deployedAddresses.wmusdcMxnbOracle}`);
     console.log("");
     console.log("Next Steps:");
     console.log("1. Update src/config.ts with the above addresses");
@@ -116,7 +148,7 @@ async function main() {
     // ============================================================================
     // Save addresses to JSON for reference
     // ============================================================================
-    const addressesFile = path.join(__dirname, "../deploy-addresses.json");
+    const addressesFile = path.join(__dirname, "../deploy-addresses-mor.json");
     fs.writeFileSync(addressesFile, JSON.stringify(deployedAddresses, null, 2));
     console.log(`Addresses saved to: ${addressesFile}`);
     console.log("");

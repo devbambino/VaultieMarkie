@@ -21,13 +21,14 @@ import * as path from "path";
 // CONFIGURATION
 // ============================================================================
 const CONTRACT_ADDRESSES = {
-  mockCCOP: "0x789D299321f194B47f3b72d33d0e028376277AA3", // From deploy.ts output
+  mockUSDC: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f", // From Aave
+  mockWETH: "0x1ddebA64A8B13060e13d15504500Dd962eECD35B", // From deploy.ts
 };
 
-// Amount to mint (100 cCOP with 6 decimals)
-const MINT_AMOUNT = ethers.parseUnits("30", 6);
+// Amount to mint (100 mockWETH with 18 decimals)
+const MINT_AMOUNT = ethers.parseUnits("100", 18);
 
-// Amount to deposit to vault
+// Amount to deposit to vault, 100 USDC
 const DEPOSIT_AMOUNT = ethers.parseUnits("100", 6);
 
 // Load market details from previous script
@@ -36,7 +37,7 @@ let MARKET_ID: string;
 let marketParams: any;
 
 try {
-  const marketDetailsPath = path.join(__dirname, "../market-details.json");
+  const marketDetailsPath = path.join(__dirname, "../market-details-usdc.json");
   const marketDetails = JSON.parse(fs.readFileSync(marketDetailsPath, "utf-8"));
   VAULT_ADDRESS = marketDetails.vaultAddress;
   MARKET_ID = marketDetails.marketId;
@@ -59,7 +60,7 @@ try {
 
 async function main() {
   console.log("=".repeat(70));
-  console.log("Mint & Deposit MockCCOP to MetaMorpho Vault");
+  console.log("Mint & Deposit MockUSDC to MetaMorpho Vault");
   console.log("=".repeat(70));
   console.log("");
 
@@ -70,20 +71,20 @@ async function main() {
 
   try {
     // ========================================================================
-    // [1/3] Mint MockCCOP
+    // [1/3] Mint MockWETH
     // ========================================================================
-    console.log("[1/3] Minting MockCCOP tokens...");
-    
-    const MOCK_CCOP_ABI = [
+    console.log("[1/3] Minting MockWETH tokens...");
+
+    const MOCK_WETH_ABI = [
       "function mint(address to, uint256 amount) external",
       "function balanceOf(address account) external view returns (uint256)",
       "function decimals() external view returns (uint8)",
     ];
 
-    const mockCCOP = new ethers.Contract(CONTRACT_ADDRESSES.mockCCOP, MOCK_CCOP_ABI, deployer);
+    const mockWETH = new ethers.Contract(CONTRACT_ADDRESSES.mockWETH, MOCK_WETH_ABI, deployer);
 
-    console.log(`Minting ${ethers.formatUnits(MINT_AMOUNT, 6)} cCOP to ${deployer.address}...`);
-    const mintTx = await mockCCOP.mint(deployer.address, MINT_AMOUNT);
+    console.log(`Minting ${ethers.formatUnits(MINT_AMOUNT, 6)} WETH to ${deployer.address}...`);
+    const mintTx = await mockWETH.mint(deployer.address, MINT_AMOUNT);
     const mintReceipt = await mintTx.wait();
 
     console.log(`✓ Mint transaction confirmed!`);
@@ -93,23 +94,23 @@ async function main() {
     console.log("");
 
     // Verify balance
-    const balance = await mockCCOP.balanceOf(deployer.address);
-    console.log(`✓ MockCCOP Balance: ${ethers.formatUnits(balance, 6)} cCOP`);
+    const balance = await mockWETH.balanceOf(deployer.address);
+    console.log(`✓ mockWETH Balance: ${ethers.formatUnits(balance, 6)} cCOP`);
     console.log("");
 
     // ========================================================================
-    // [2/3] Approve MockCCOP to MetaMorpho Vault
+    // [2/3] Approve MockUSDC to MetaMorpho Vault
     // ========================================================================
-    console.log("[2/3] Approving MockCCOP for MetaMorpho Vault...");
+    console.log("[2/3] Approving MockUSDC for MetaMorpho Vault...");
 
     const ERC20_ABI = [
       "function approve(address spender, uint256 amount) external returns (bool)",
     ];
 
-    const mockCCOPERC20 = new ethers.Contract(CONTRACT_ADDRESSES.mockCCOP, ERC20_ABI, deployer);
+    const mockUSDCERC20 = new ethers.Contract(CONTRACT_ADDRESSES.mockUSDC, ERC20_ABI, deployer);
 
-    console.log(`Approving ${ethers.formatUnits(DEPOSIT_AMOUNT, 6)} cCOP to Vault (${VAULT_ADDRESS})...`);
-    const approveTx = await mockCCOPERC20.approve(VAULT_ADDRESS, DEPOSIT_AMOUNT);
+    console.log(`Approving ${ethers.formatUnits(DEPOSIT_AMOUNT, 6)} USDC to Vault (${VAULT_ADDRESS})...`);
+    const approveTx = await mockUSDCERC20.approve(VAULT_ADDRESS, DEPOSIT_AMOUNT);
     const approveReceipt = await approveTx.wait();
 
     console.log(`✓ Approval transaction confirmed!`);
@@ -135,7 +136,7 @@ async function main() {
     const queueLength = await vault.supplyQueueLength();
     const queueLengthNum = Number(queueLength);
     console.log(`Vault supply queue length: ${queueLengthNum}`);
-    
+
     if (queueLengthNum === 0) {
       console.log("");
       console.log("❌ VAULT NOT CONFIGURED - Cannot deposit!");
@@ -164,11 +165,11 @@ async function main() {
     console.log("");
 
     // ========================================================================
-    // [4/4] Deposit MockCCOP to MetaMorpho Vault
+    // [4/4] Deposit MockUSDC to MetaMorpho Vault
     // ========================================================================
-    console.log("[4/4] Depositing MockCCOP to MetaMorpho Vault...");
+    console.log("[4/4] Depositing MockUSDC to MetaMorpho Vault...");
 
-    console.log(`Depositing ${ethers.formatUnits(DEPOSIT_AMOUNT, 6)} cCOP to vault...`);
+    console.log(`Depositing ${ethers.formatUnits(DEPOSIT_AMOUNT, 6)} USDC to vault...`);
     console.log(`Vault Address: ${VAULT_ADDRESS}`);
     console.log("");
 
@@ -200,8 +201,8 @@ async function main() {
     console.log("=".repeat(70));
     console.log("");
     console.log("Summary:");
-    console.log(`  ✓ Minted: ${ethers.formatUnits(MINT_AMOUNT, 6)} cCOP`);
-    console.log(`  ✓ Deposited: ${ethers.formatUnits(DEPOSIT_AMOUNT, 6)} cCOP to MetaMorpho Vault`);
+    console.log(`  ✓ Minted: ${ethers.formatUnits(MINT_AMOUNT, 6)} WETH`);
+    console.log(`  ✓ Deposited: ${ethers.formatUnits(DEPOSIT_AMOUNT, 6)} USDC to MetaMorpho Vault`);
     console.log(`  ✓ Vault Address: ${VAULT_ADDRESS}`);
     console.log("");
     console.log("Next Steps:");

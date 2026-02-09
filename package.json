@@ -7,7 +7,10 @@
     "compile": "npx hardhat compile",
     "deploy": "npx hardhat run scripts/deploy.ts --network baseSepolia",
     "create-market": "npx hardhat run scripts/createMarket.ts --network baseSepolia",
+    "create-usd-market": "npx hardhat run scripts/createUSDCMarket.ts --network baseSepolia",
+    "create-mxn-market": "npx hardhat run scripts/createMXNBMarket.ts --network baseSepolia",
     "mint-and-supply": "npx hardhat run scripts/mintAndSupply.ts --network baseSepolia",
+    "supply-usd": "npx hardhat run scripts/supplyUSDC.ts --network baseSepolia",
     "demo": "npx hardhat run scripts/demoFlow.ts --network baseSepolia",
     "test": "npx hardhat test",
     "serve": "python -m http.server 8000 --directory frontend"

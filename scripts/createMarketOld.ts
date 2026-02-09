@@ -40,9 +40,9 @@ const VAULT_CONFIG = {
 // UPDATE THESE ADDRESSES AFTER DEPLOYMENT
 // ============================================================================
 const CONTRACT_ADDRESSES = {
-  USDC: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f", // with 6 decimals, From deploy.ts output
-  WETH: "0x4200000000000000000000000000000000000006",   // WETH with 18 decimals, From deploy.ts output
-  fixedPriceOracle: "0xa8B8bBc0A572803A9153336122EBc971DeF60672", // From deploy.ts output
+    USDC: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f", // with 6 decimals, From deploy.ts output
+    WETH: "0x4200000000000000000000000000000000000006",   // WETH with 18 decimals, From deploy.ts output
+    EthUsdcOracle: "0xa8B8bBc0A572803A9153336122EBc971DeF60672", // From deploy.ts output
 };
 
 // Morpho Blue on Base Sepolia
@@ -87,14 +87,7 @@ function logSection(title: string) {
 }
 
 async function main() {
-    console.log("\x1b[36m");
-    console.log("╔" + "═".repeat(68) + "╗");
-    console.log("║" + " ".repeat(68) + "║");
-    console.log("║" + "  MORPHO USDC VAULT CREATION".padStart(68) + "║");
-    console.log("║" + "  Base Sepolia Testnet".padStart(68) + "║");
-    console.log("║" + " ".repeat(68) + "║");
-    console.log("╚" + "═".repeat(68) + "╝");
-    console.log("\x1b[0m");
+
 
     const [deployer] = await ethers.getSigners();
     console.log(`\nDeployer: ${deployer.address}`);
@@ -105,7 +98,7 @@ async function main() {
         console.log("Market Parameters:");
         console.log(`  Loan Token:      ${CONTRACT_ADDRESSES.USDC}`);
         console.log(`  Collateral:      ${CONTRACT_ADDRESSES.WETH}`);
-        console.log(`  Oracle:          ${CONTRACT_ADDRESSES.fixedPriceOracle}`);
+        console.log(`  Oracle:          ${CONTRACT_ADDRESSES.EthUsdcOracle}`);
         console.log(`  IRM:             ${IRM_ADDRESS}`);
         console.log(`  LLTV:            77% (${LLTV.toString()})`);
         console.log("");
@@ -114,7 +107,7 @@ async function main() {
         const marketParams: MarketParams = {
             loanToken: ethers.getAddress(CONTRACT_ADDRESSES.USDC),
             collateralToken: ethers.getAddress(CONTRACT_ADDRESSES.WETH),
-            oracle: ethers.getAddress(CONTRACT_ADDRESSES.fixedPriceOracle),
+            oracle: ethers.getAddress(CONTRACT_ADDRESSES.EthUsdcOracle),
             irm: ethers.getAddress(IRM_ADDRESS),
             lltv: LLTV,
         };
@@ -205,7 +198,7 @@ async function main() {
         logSection("Vault Configuration");
         console.log(`Name:              ${VAULT_CONFIG.name}`);
         console.log(`Symbol:            ${VAULT_CONFIG.symbol}`);
-        console.log(`Asset:             USDC (${BASE_SEPOLIA.usdc})`);
+        console.log(`Asset:             USDC (${CONTRACT_ADDRESSES.USDC})`);
         console.log(`Initial Timelock:  ${VAULT_CONFIG.initialTimelock} seconds`);
         console.log(`Supply Cap:        ${ethers.formatUnits(VAULT_CONFIG.supplyCapAmount, 6)} USDC`);
 
@@ -214,6 +207,15 @@ async function main() {
             VAULT_FACTORY_ABI,
             deployer
         );
+
+        console.log("\x1b[36m");
+        console.log("╔" + "═".repeat(68) + "╗");
+        console.log("║" + " ".repeat(68) + "║");
+        console.log("║" + "  MORPHO USDC VAULT CREATION".padStart(68) + "║");
+        console.log("║" + "  Base Sepolia Testnet".padStart(68) + "║");
+        console.log("║" + " ".repeat(68) + "║");
+        console.log("╚" + "═".repeat(68) + "╝");
+        console.log("\x1b[0m");
 
         logSection("Creating Morpho USDC Vault");
 
@@ -226,7 +228,7 @@ async function main() {
         const tx = await vaultFactory.createMetaMorpho(
             deployer.address,              // initialOwner
             VAULT_CONFIG.initialTimelock,  // initialTimelock
-            BASE_SEPOLIA.usdc,             // asset
+            CONTRACT_ADDRESSES.USDC,             // asset
             VAULT_CONFIG.name,             // name
             VAULT_CONFIG.symbol,           // symbol
             salt                           // salt for deterministic address
@@ -341,7 +343,7 @@ async function main() {
             // Save to a JSON file for reference
             const vaultDetails = {
                 vaultAddress: vaultAddress,
-                asset: BASE_SEPOLIA.usdc,
+                asset: CONTRACT_ADDRESSES.USDC,
                 name: VAULT_CONFIG.name,
                 symbol: VAULT_CONFIG.symbol,
                 initialTimelock: VAULT_CONFIG.initialTimelock,

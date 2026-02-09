@@ -6,9 +6,9 @@ pragma solidity ^0.8.19;
  * @notice Simple oracle that returns a fixed price for Morpho Blue integration
  * @dev
  * - Returns a constant price scaled by 1e36 (Morpho's required precision)
- * - For this PoC: both collateral (WaUSDC) and loan (cCOP) have 6 decimals
- * - Price: 1 WaUSDC = 1 cCOP (both worth ~$1 USD)
- * - Formula: 1 * 10^(6 - 6 + 36) = 1e36
+ * - For this PoC:  collateral (WmUSDC) has 18 decs and loan (MXNB) have 6 decimals
+ * - Price: 1 WmUSDC = 1 MXNB (both worth ~$1 USD)
+ * - Formula: 1 * 10^(18 - 6 + 36) = 1e48
  *
  * Production oracle would use:
  * - Chainlink price feeds
@@ -18,7 +18,7 @@ pragma solidity ^0.8.19;
 contract FixedPriceOracle {
     /// @notice The fixed price returned by this oracle
     /// @dev Morpho requires price scaled by 1e36
-    /// For our PoC: 1 WaUSDC (6 decimals) = 1 cCOP (6 decimals)
+    /// For our PoC: 1 WmUSDC (18 decimals) = 1 MXNB (6 decimals)
     /// So price = 1 * 10^36 = 1e36
     uint256 private constant PRICE = 1e36;
 
