@@ -57,76 +57,94 @@ async function main() {
     // ============================================================================
     // 1. Prerequisites
     // ============================================================================
-    console.log("[1/3] Deploying MockWETH...");
-    /*const MockWETH = await ethers.getContractFactory("MockWETH");
-    const mockWETH = await MockWETH.deploy();
-    await mockWETH.waitForDeployment();
-    const mockWETHAddress = await mockWETH.getAddress();
-    deployedAddresses.mockWETH = mockWETHAddress;
-    console.log(`✓ mockWETH deployed at: ${mockWETHAddress}`);
-    console.log(`  - Name: wETH_test`);
-    console.log(`  - Symbol: wETH`);
-    console.log(`  - Decimals: 18`);
-    console.log("");
 
-    console.log("[2/3] Deploying ethUsdcOracle...");
-    const EthUsdcOracle = await ethers.getContractFactory("EthUsdcOracle");
-    const ethUsdcOracle = await EthUsdcOracle.deploy();
-    await ethUsdcOracle.waitForDeployment();
-    const oracle1Address = await ethUsdcOracle.getAddress();
-    deployedAddresses.ethUsdcOracle = oracle1Address;
-    console.log(`✓ EthUsdcOracle deployed at: ${oracle1Address}`);
-    console.log(`  - Price: 2100 * 1e33 (1 WETH = 2100 WETH_test)`);
-    console.log("");
+    let isDeployingETH = false;
+    if (isDeployingETH) {
+      console.log("[1/3] Deploying MockWETH...");
+      const MockWETH = await ethers.getContractFactory("MockWETH");
+      const mockWETH = await MockWETH.deploy();
+      await mockWETH.waitForDeployment();
+      const mockWETHAddress = await mockWETH.getAddress();
+      deployedAddresses.mockWETH = mockWETHAddress;
+      console.log(`✓ mockWETH deployed at: ${mockWETHAddress}`);
+      console.log(`  - Name: wETH_test`);
+      console.log(`  - Symbol: wETH`);
+      console.log(`  - Decimals: 18`);
+      console.log("");
+    }
+
+    let isDeployingETHusdOracle = true;
+    if (isDeployingETHusdOracle) {
+      console.log("[2/3] Deploying ethUsdcOracle...");
+      const EthUsdcOracle = await ethers.getContractFactory("EthUsdcOracle");
+      const ethUsdcOracle = await EthUsdcOracle.deploy();
+      await ethUsdcOracle.waitForDeployment();
+      const oracle1Address = await ethUsdcOracle.getAddress();
+      deployedAddresses.ethUsdcOracle = oracle1Address;
+      console.log(`✓ EthUsdcOracle deployed at: ${oracle1Address}`);
+      console.log(`  - Price: 2100 * 1e33 (1 WETH = 2100 WETH_test)`);
+      console.log("");
+    }
+
 
     // ============================================================================
     // 1. Deploy MockMXNB
     // ============================================================================
-    console.log("[3/3] Deploying MockMXNB...");
-    const MockMXNB = await ethers.getContractFactory("MockMXNB");
-    const mockMXNB = await MockMXNB.deploy();
-    await mockMXNB.waitForDeployment();
-    const mockMXNBAddress = await mockMXNB.getAddress();
-    deployedAddresses.mockMXNB = mockMXNBAddress;
-    console.log(`✓ MockMXNB deployed at: ${mockMXNBAddress}`);
-    console.log(`  - Name: MXNB_test`);
-    console.log(`  - Symbol: MXNB`);
-    console.log(`  - Decimals: 6`);
-    console.log("");
-
+    let isDeployingMXNB = false;
+    if (isDeployingMXNB) {
+      console.log("[3/3] Deploying MockMXNB...");
+      const MockMXNB = await ethers.getContractFactory("MockMXNB");
+      const mockMXNB = await MockMXNB.deploy();
+      await mockMXNB.waitForDeployment();
+      const mockMXNBAddress = await mockMXNB.getAddress();
+      deployedAddresses.mockMXNB = mockMXNBAddress;
+      console.log(`✓ MockMXNB deployed at: ${mockMXNBAddress}`);
+      console.log(`  - Name: MXNB_test`);
+      console.log(`  - Symbol: MXNB`);
+      console.log(`  - Decimals: 6`);
+      console.log("");
+    }
 
     // ============================================================================
     // 2. Deploy WmUSDC
     // ============================================================================
-    console.log("[2/3] Deploying WmUSDC...");
-    
-    // Morpho USDC Vault mUSDC address on Base Sepolia
-    const MUSDC_ADDRESS = "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9";
-    
-    const WmUSDC = await ethers.getContractFactory("WmUSDC");
-    const wmUSDC = await WmUSDC.deploy(MUSDC_ADDRESS);
-    await wmUSDC.waitForDeployment();
-    const wmUSDCAddress = await wmUSDC.getAddress();
-    deployedAddresses.wmUSDC = wmUSDCAddress;
-    console.log(`✓ WmUSDC deployed at: ${wmUSDCAddress}`);
-    console.log(`  - Name: Wrapped Morpho USDC`);
-    console.log(`  - Symbol: WmUSDC`);
-    console.log(`  - Decimals: 18`);
-    console.log(`  - Underlying: ${MUSDC_ADDRESS}`);
-    console.log("");
-*/
+    let isDeployingWmUSDC = false;
+    if (isDeployingWmUSDC) {
+      console.log("[2/3] Deploying WmUSDC...");
+
+      // Morpho USDC Vault mUSDC address on Base Sepolia
+      const MUSDC_ADDRESS = "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9";
+
+      const WmUSDC = await ethers.getContractFactory("WmUSDC");
+      const wmUSDC = await WmUSDC.deploy(MUSDC_ADDRESS);
+      await wmUSDC.waitForDeployment();
+      const wmUSDCAddress = await wmUSDC.getAddress();
+      deployedAddresses.wmUSDC = wmUSDCAddress;
+      console.log(`✓ WmUSDC deployed at: ${wmUSDCAddress}`);
+      console.log(`  - Name: Wrapped Morpho USDC`);
+      console.log(`  - Symbol: WmUSDC`);
+      console.log(`  - Decimals: 18`);
+      console.log(`  - Underlying: ${MUSDC_ADDRESS}`);
+      console.log("");
+    }
+
+
     // ============================================================================
-    // 3. Deploy FixedPriceOracle
+    // 3. Deploy WmusdcMxnbOracle
     // ============================================================================
-    console.log("[3/3] Deploying WmusdcMxnbOracle...");
-    const FixedPriceOracle = await ethers.getContractFactory("WmusdcMxnbOracle");
-    const fixedPriceOracle = await FixedPriceOracle.deploy();
-    await fixedPriceOracle.waitForDeployment();
-    const oracleAddress = await fixedPriceOracle.getAddress();
-    deployedAddresses.wmusdcMxnbOracle = oracleAddress;
-    console.log(`✓ FixedPriceOracle deployed at: ${oracleAddress}`);
-    console.log(`  - Price: 1e48 (1 WmUSDC = 1 MXNB_test)`);
-    console.log("");
+    let isDeployingWmusdcMxnbOracle = true;
+    if (isDeployingWmusdcMxnbOracle) {
+      console.log("[3/3] Deploying WmusdcMxnbOracle...");
+      const FixedPriceOracle = await ethers.getContractFactory("WmusdcMxnbOracle");
+      const fixedPriceOracle = await FixedPriceOracle.deploy();
+      await fixedPriceOracle.waitForDeployment();
+      const oracleAddress = await fixedPriceOracle.getAddress();
+      deployedAddresses.wmusdcMxnbOracle = oracleAddress;
+      console.log(`✓ FixedPriceOracle deployed at: ${oracleAddress}`);
+      console.log(`  - Price: 1e48 (1 WmUSDC = 1 MXNB_test)`);
+      console.log("");
+    }
+
 
     // ============================================================================
     // Summary

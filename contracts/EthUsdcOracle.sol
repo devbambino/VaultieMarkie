@@ -19,7 +19,7 @@ contract EthUsdcOracle {
     /// @notice The fixed price returned by this oracle
     /// @dev Morpho requires price scaled by 1e36
     /// For our PoC: 1 weth (18 decs) = 2100 USDC (6 decs)
-    uint256 private constant PRICE = 2100 * 10^(6 - 18 + 36) ;
+    uint256 private constant PRICE = 2100 * 10**(6 - 18 + 36) ;
 
     /**
      * @notice Get the price of collateral quoted in loan token

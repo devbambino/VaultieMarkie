@@ -1,9 +1,9 @@
 {
-  "marketId": "0x542fb92e3de62b2e225464daf341bd4be4aa4c2f78dbe400db366e30d0bcc0cb",
+  "marketId": "0x4fc5ba3c0ecfa8df29548fc2988c55cb5fc10eb0b805d281c407ff9966ef244c",
   "vaultAddress": "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9",
-  "loanToken": "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+  "loanToken": "0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f",
   "collateralToken": "0x1ddebA64A8B13060e13d15504500Dd962eECD35B",
-  "oracle": "0x3A19A14c709cf798E330277ed942475EBadAC74E",
+  "oracle": "0x42BD63952Bb102120031EB8c8Ca3160b1Af8B28D",
   "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
   "lltv": "770000000000000000",
   "vaultConfig": {
@@ -12,7 +12,7 @@
     "initialTimelock": 0,
     "supplyCapAmount": "100000000000000"
   },
-  "vaultBlockNumber": 37443335,
-  "vaultTransactionHash": "0xec9d15f8fa030a9007233f549b40aa1317c21c4c1d9dddb52319bbb5082191fe",
-  "timestamp": 1768617586633
+  "blockNumber": 37488299,
+  "marketTransactionHash": "0x748b970df16502f0ea1c2b0ed2172259cd1805ce68c2465b2740ec8bb9554020",
+  "timestamp": 1770744884547
 }
