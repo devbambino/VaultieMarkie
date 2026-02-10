@@ -11,6 +11,7 @@
     "create-mxn-market": "npx hardhat run scripts/createMXNBMarket.ts --network baseSepolia",
     "mint-and-supply": "npx hardhat run scripts/mintAndSupply.ts --network baseSepolia",
     "supply-usd": "npx hardhat run scripts/supplyUSDC.ts --network baseSepolia",
+    "supply-mxn": "npx hardhat run scripts/supplyMXNB.ts --network baseSepolia",
     "demo": "npx hardhat run scripts/demoFlow.ts --network baseSepolia",
     "test": "npx hardhat test",
     "serve": "python -m http.server 8000 --directory frontend"

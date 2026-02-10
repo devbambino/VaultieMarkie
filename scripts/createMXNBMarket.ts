@@ -50,10 +50,10 @@ const IRM_ADDRESS = "0x46415998764C29aB2a25CbeA6254146D50D22687";
 
 // Vault configuration
 const VAULT_CONFIG = {
-  name: "cCOP Vault",
-  symbol: "vcCOP",
+  name: "Morpho MXNB Vault",
+  symbol: "vMXNB",
   initialTimelock: 0, // 0 seconds for testing, can be increased later to 86400 (1 day)
-  supplyCapAmount: ethers.parseUnits("100000000", 6), // 100000000 cCOP cap
+  supplyCapAmount: ethers.parseUnits("100000000", 6), // 100000000 MXNB cap
 };
 
 /**
@@ -103,8 +103,8 @@ async function main() {
   if (!CONTRACT_ADDRESSES.mockMXNB.startsWith("0x") || CONTRACT_ADDRESSES.mockMXNB === "0x") {
     throw new Error("ERROR: mockMXNB address not set in CONTRACT_ADDRESSES. Update it from deploy.ts output.");
   }
-  if (!CONTRACT_ADDRESSES.waUSDC.startsWith("0x") || CONTRACT_ADDRESSES.waUSDC === "0x") {
-    throw new Error("ERROR: waUSDC address not set in CONTRACT_ADDRESSES. Update it from deploy.ts output.");
+  if (!CONTRACT_ADDRESSES.wmUSDC.startsWith("0x") || CONTRACT_ADDRESSES.wmUSDC === "0x") {
+    throw new Error("ERROR: wmUSDC address not set in CONTRACT_ADDRESSES. Update it from deploy.ts output.");
   }
   if (!CONTRACT_ADDRESSES.fixedPriceOracle.startsWith("0x") || CONTRACT_ADDRESSES.fixedPriceOracle === "0x") {
     throw new Error("ERROR: fixedPriceOracle address not set in CONTRACT_ADDRESSES. Update it from deploy.ts output.");
@@ -113,7 +113,7 @@ async function main() {
   try {
     console.log("Market Parameters:");
     console.log(`  Loan Token:      ${CONTRACT_ADDRESSES.mockMXNB}`);
-    console.log(`  Collateral:      ${CONTRACT_ADDRESSES.waUSDC}`);
+    console.log(`  Collateral:      ${CONTRACT_ADDRESSES.wmUSDC}`);
     console.log(`  Oracle:          ${CONTRACT_ADDRESSES.fixedPriceOracle}`);
     console.log(`  IRM:             ${IRM_ADDRESS}`);
     console.log(`  LLTV:            77% (${LLTV.toString()})`);
@@ -122,7 +122,7 @@ async function main() {
     // Create market params object with normalized addresses
     const marketParams: MarketParams = {
       loanToken: ethers.getAddress(CONTRACT_ADDRESSES.mockMXNB),
-      collateralToken: ethers.getAddress(CONTRACT_ADDRESSES.waUSDC),
+      collateralToken: ethers.getAddress(CONTRACT_ADDRESSES.wmUSDC),
       oracle: ethers.getAddress(CONTRACT_ADDRESSES.fixedPriceOracle),
       irm: ethers.getAddress(IRM_ADDRESS),
       lltv: LLTV,
@@ -210,14 +210,14 @@ async function main() {
     console.log("");
 
     // ============================================================================
-    // [3/3] Create Morpho Vault for cCOP_test
+    // [3/3] Create Morpho Vault for MXNB_test
     // ============================================================================
-    console.log("[3/3] Creating Morpho Vault for cCOP management...");
+    console.log("[3/3] Creating Morpho Vault for MXNB management...");
 
     const vaultFactory = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, deployer);
 
     // Use a deterministic salt for vault creation
-    const vaultSalt = ethers.id("cCOP_Vault_" + Date.now());
+    const vaultSalt = ethers.id("MXNB_Vault_" + Date.now());
     let vaultAddress = "";
     let vaultReceipt: any = null;
 
@@ -333,9 +333,21 @@ async function main() {
       }
 
       // ============================================================================
+      // [5/3] Configure Vault: Accept Cap
+      // ============================================================================
+      console.log("[5/3] Configure Vault:  Call acceptCap()...");
+      console.log("Call acceptCap() with the market parameters to accept the pending supply cap");
+
+      // ============================================================================
       // [5/3] Configure Vault: Set Supply Queue
       // ============================================================================
-      console.log("[5/5] Configuring vault: Setting supply queue...");
+      console.log("[5/3] Configure Vault:  Call setSupplyQueue()...");
+      console.log("Call setSupplyQueue() with the market ID to set the supply queue");
+
+      // ============================================================================
+      // [5/3] Configure Vault: Set Allocator
+      // ============================================================================
+      console.log("[5/5] Configuring vault: Setting allocator...");
 
       // First, set deployer as allocator so they can set the supply queue
       console.log("Setting deployer as allocator...");
@@ -393,7 +405,7 @@ async function main() {
     console.log("Market Details:");
     console.log(`  Market ID:       ${marketId}`);
     console.log(`  Loan Token:      ${CONTRACT_ADDRESSES.mockMXNB}`);
-    console.log(`  Collateral:      ${CONTRACT_ADDRESSES.waUSDC}`);
+    console.log(`  Collateral:      ${CONTRACT_ADDRESSES.wmUSDC}`);
     console.log(`  Oracle:          ${CONTRACT_ADDRESSES.fixedPriceOracle}`);
     console.log(`  LLTV:            77%`);
     console.log("");
@@ -403,7 +415,7 @@ async function main() {
       console.log(`  Vault Address:   ${vaultAddress}`);
       console.log(`  Vault Name:      ${VAULT_CONFIG.name}`);
       console.log(`  Vault Symbol:    ${VAULT_CONFIG.symbol}`);
-      console.log(`  Supply Cap:      ${ethers.formatUnits(VAULT_CONFIG.supplyCapAmount, 6)} cCOP`);
+      console.log(`  Supply Cap:      ${ethers.formatUnits(VAULT_CONFIG.supplyCapAmount, 6)} MXNB`);
       console.log("");
     }
 
