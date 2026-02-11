@@ -32,7 +32,7 @@ import * as path from "path";
 const CONTRACT_ADDRESSES = {
   USDC: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f", // with 6 decimals, From Aave faucet output
   WETH: "0x1ddebA64A8B13060e13d15504500Dd962eECD35B",   // WETH with 18 decimals, From deploy.ts output
-  EthUsdcOracle: "0x42BD63952Bb102120031EB8c8Ca3160b1Af8B28D", // From deploy.ts output
+  EthUsdcOracle: "0x97EBCdb0F784CDc9F91490bEBC9C8756491814a3", // From Morpho
   vaultAddress: "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9",
 };
 
@@ -115,7 +115,7 @@ async function main() {
     console.log(`  Collateral:      ${CONTRACT_ADDRESSES.WETH}`);
     console.log(`  Oracle:          ${CONTRACT_ADDRESSES.EthUsdcOracle}`);
     console.log(`  IRM:             ${IRM_ADDRESS}`);
-    console.log(`  LLTV:            80% (${LLTV.toString()})`);
+    console.log(`  LLTV:            70% (${LLTV.toString()})`);
     console.log("");
 
     // Create market params object with normalized addresses

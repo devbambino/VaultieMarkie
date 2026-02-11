@@ -32,7 +32,7 @@ const CONTRACT_ADDRESSES = {
   mockUSDC: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
   wmUSDC: "0xCa4625EA7F3363d7E9e3090f9a293b64229FE55B",
   wmusdcMxnbOracle: "0x9f4b138BF3513866153Af9f0A2794096DFebFaD4",
-  ethUsdcOracle: "0x42BD63952Bb102120031EB8c8Ca3160b1Af8B28D",
+  ethUsdcOracle: "0x97EBCdb0F784CDc9F91490bEBC9C8756491814a3",//"0x42BD63952Bb102120031EB8c8Ca3160b1Af8B28D",
   morphoUSDCVault: "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9", // Morpho USDC Vault - UPDATE AFTER CREATION
   morphoMXNBVault: "0xd6a83595b11CCC94bCcde4c9654bcaa6D423896e", // Morpho MXNB Vault - UPDATE AFTER CREATION
 };
@@ -44,13 +44,13 @@ const BASE_SEPOLIA = {
 };
 
 // UPDATE THIS from market-details.json after createMarket.ts
-const USDC_MARKET_ID = "0x4fc5ba3c0ecfa8df29548fc2988c55cb5fc10eb0b805d281c407ff9966ef244c"; // Will be set after createMarket.ts
+const USDC_MARKET_ID = "0x6af42641dd1ddc4fd0c3648e45497a29b78eb50d21fd0f6eac7b8eae2192dd47";//"0x4fc5ba3c0ecfa8df29548fc2988c55cb5fc10eb0b805d281c407ff9966ef244c"; // Will be set after createMarket.ts
 
-// Collateral Amount to supply (0.05 WETH = 5 * 10^16 wei = 105 USD)
-const SUPPLY_AMOUNT = ethers.parseUnits("5", 16);
+// Collateral Amount to supply (0.1 WETH = 1 * 10^17 wei = 194 USD)
+const SUPPLY_AMOUNT = ethers.parseUnits("0", 18);
 
-// Amount to borrow (50 USDC = 50 * 10^6 wei)
-const BORROW_AMOUNT = ethers.parseUnits("50", 6);
+// Amount to borrow (5 USDC = 5 * 10^6 wei)
+const BORROW_AMOUNT = ethers.parseUnits("5", 6);
 
 /**
  * Log helper with formatting
@@ -270,27 +270,30 @@ async function main() {
       await getBalance(collateral, signerAddress, "wETH", 18);
 
     } else {
-      // ========================================================================
-      // STEP 5: Approve collateral to Morpho Blue
-      // ========================================================================
-      logStep(5, "Approve collateral for Morpho", "\x1b[33m");
-      console.log(`Approving collateral to Morpho Blue...`);
-      const approveForMorphoTx = await collateral.approve(BASE_SEPOLIA.morphoBlue, SUPPLY_AMOUNT);
-      await approveForMorphoTx.wait();
-      console.log(`✓ Approval confirmed (${approveForMorphoTx.hash})`);
+      let nonce = 0;
+      if (SUPPLY_AMOUNT > 0) {
+        // ========================================================================
+        // STEP 5: Approve collateral to Morpho Blue
+        // ========================================================================
+        logStep(5, "Approve collateral for Morpho", "\x1b[33m");
+        console.log(`Approving collateral to Morpho Blue...`);
+        const approveForMorphoTx = await collateral.approve(BASE_SEPOLIA.morphoBlue, SUPPLY_AMOUNT);
+        await approveForMorphoTx.wait();
+        console.log(`✓ Approval confirmed (${approveForMorphoTx.hash})`);
 
-      // ========================================================================
-      // STEP 6: Supply Collateral to Morpho
-      // ========================================================================
-      logStep(6, "Supply Collateral to Morpho Blue", "\x1b[33m");
-      let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
-      console.log(`Starting execution with Nonce: ${nonce}`);
+        // ========================================================================
+        // STEP 6: Supply Collateral to Morpho
+        // ========================================================================
+        logStep(6, "Supply Collateral to Morpho Blue", "\x1b[33m");
+        nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
+        console.log(`Starting execution with Nonce: ${nonce}`);
 
-      console.log(`Supplying ${SUPPLY_AMOUNT} weth as collateral...`);
-      const supplyCollateralTx = await morpho.supplyCollateral(marketParams, SUPPLY_AMOUNT, signerAddress, "0x", { nonce: nonce });
-      await supplyCollateralTx.wait();
-      console.log(`✓ Collateral supply confirmed (${supplyCollateralTx.hash})`);
-      await getBalance(collateral, signerAddress, "wETH");
+        console.log(`Supplying ${SUPPLY_AMOUNT} weth as collateral...`);
+        const supplyCollateralTx = await morpho.supplyCollateral(marketParams, SUPPLY_AMOUNT, signerAddress, "0x", { nonce: nonce });
+        await supplyCollateralTx.wait();
+        console.log(`✓ Collateral supply confirmed (${supplyCollateralTx.hash})`);
+        await getBalance(collateral, signerAddress, "wETH");
+      }
 
       // ========================================================================
       // STEP 7: Borrow loan token from Morpho
@@ -298,12 +301,17 @@ async function main() {
       logStep(7, "Borrow loan token from Morpho Blue", "\x1b[33m");
 
       console.log(`Borrowing ${ethers.formatUnits(BORROW_AMOUNT, 6)} loan token...`);
+      if (nonce === 0 ){
+        nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
+      }else{
+        nonce = nonce++;
+      }
       const borrowTx = await morpho.borrow(
         marketParams,
         BORROW_AMOUNT,  // assets
         0,              // shares (0 = calculate from assets)
         signerAddress,
-        signerAddress, { nonce: nonce++ }
+        signerAddress, { nonce: nonce }
       );
       await borrowTx.wait();
       console.log(`✓ Borrow confirmed (${borrowTx.hash})`);
