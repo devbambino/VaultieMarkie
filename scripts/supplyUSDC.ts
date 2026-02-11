@@ -25,11 +25,13 @@ const CONTRACT_ADDRESSES = {
   mockWETH: "0x1ddebA64A8B13060e13d15504500Dd962eECD35B", // From deploy.ts
 };
 
+let isDepositingUSDC = false;
+
 // Amount to mint (100 mockWETH with 18 decimals)
 const MINT_AMOUNT = ethers.parseUnits("100", 18);
 
 // Amount to deposit to vault, 100 USDC
-const DEPOSIT_AMOUNT = ethers.parseUnits("100", 6);
+const DEPOSIT_AMOUNT = ethers.parseUnits("200", 6);
 
 // Load market details from previous script
 let VAULT_ADDRESS: string;
@@ -68,6 +70,8 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log(`Deployer: ${deployer.address}`);
   console.log("");
+
+  
 
   try {
     // ========================================================================
@@ -122,7 +126,6 @@ async function main() {
     // ========================================================================
 
 
-    let isDepositingUSDC = true;
     if (isDepositingUSDC) {
       console.log("[2/3] Approving MockUSDC for MetaMorpho Vault...");
 
@@ -139,7 +142,6 @@ async function main() {
       // [3/3] Verify Vault Configuration Before Deposit
       // ========================================================================
       console.log("[3/3] Verifying vault configuration...");
-
 
       const queueLength = await vault.supplyQueueLength();
       const queueLengthNum = Number(queueLength);

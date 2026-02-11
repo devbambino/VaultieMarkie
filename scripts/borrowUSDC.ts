@@ -20,12 +20,17 @@
  */
 
 import { ethers } from "hardhat";
-import type { ethers as ethersType } from "ethers";
 import * as ethersLib from "ethers";
+import * as fs from "fs";
+import * as path from "path";
 
 // ============================================================================
 // UPDATE THESE ADDRESSES AFTER DEPLOYMENT
 // ============================================================================
+
+let VAULT_ADDRESS: string;
+let MARKET_ID: string;
+
 const CONTRACT_ADDRESSES = {
   mockMXNB: "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E",
   mockWETH: "0x1ddebA64A8B13060e13d15504500Dd962eECD35B",
@@ -50,7 +55,24 @@ const USDC_MARKET_ID = "0x6af42641dd1ddc4fd0c3648e45497a29b78eb50d21fd0f6eac7b8e
 const SUPPLY_AMOUNT = ethers.parseUnits("0", 18);
 
 // Amount to borrow (5 USDC = 5 * 10^6 wei)
-const BORROW_AMOUNT = ethers.parseUnits("5", 6);
+const BORROW_AMOUNT = ethers.parseUnits("147", 6);
+
+let isRepayment = true;
+
+try {
+  const marketDetailsPath = path.join(__dirname, "../market-details-usdc.json");
+  const marketDetails = JSON.parse(fs.readFileSync(marketDetailsPath, "utf-8"));
+  VAULT_ADDRESS = marketDetails.vaultAddress;
+  MARKET_ID = marketDetails.marketId;
+  console.log(`✓ Loaded market details from market-details.json`);
+  console.log(`  Vault Address: ${VAULT_ADDRESS}`);
+  console.log(`  Market ID: ${MARKET_ID}`);
+} catch (error) {
+  throw new Error(
+    "Could not load market details. Make sure to run createMarket.ts first.\n" +
+    "Run: npx hardhat run scripts/createMarket.ts --network baseSepolia"
+  );
+}
 
 /**
  * Log helper with formatting
@@ -153,20 +175,23 @@ async function main() {
       return;
     }
 
-    const morphoVaultABI = [
-      "function deposit(uint256 assets, address receiver) external returns (uint256)",
-      "function withdraw(uint256 assets, address receiver, address owner) external returns (uint256)",
-      "function redeem(uint256 shares, address receiver, address owner) external returns (uint256)",
-      "function balanceOf(address) external view returns (uint256)",
-      "function approve(address spender, uint256 amount) external returns (bool)"
-    ];
-
     const morphoABI = [
       "function supplyCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, bytes data) external",
       "function position(bytes32 id, address user) external view returns (tuple(uint256,uint256,uint256))",
       "function borrow(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver) external returns (uint256, uint256)",
       "function repay(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data) external returns (uint256, uint256)",
       "function withdrawCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, address receiver) external",
+    ];
+
+    const VAULT_ABI = [
+      "function deposit(uint256 assets, address receiver) external returns (uint256)",
+      "function withdraw(uint256 assets, address receiver, address owner) external returns (uint256)",
+      "function balanceOf(address account) external view returns (uint256)",
+      "function redeem(uint256 shares, address receiver, address owner) external returns (uint256)",
+      "function asset() external view returns (address)",
+      "function supplyQueueLength() external view returns (uint256)",
+      "function supplyQueue(uint256 index) external view returns (bytes32)",
+      "function approve(address spender, uint256 amount) external returns (bool)"
     ];
 
     // Create market params
@@ -181,6 +206,7 @@ async function main() {
     //const morphoUSDCVault = new ethers.Contract(CONTRACT_ADDRESSES.morphoUSDCVault, morphoVaultABI, signer);
     const morpho = new ethers.Contract(BASE_SEPOLIA.morphoBlue, morphoABI, signer);
     const usdc = new ethers.Contract(CONTRACT_ADDRESSES.mockUSDC, collateralABI, signer);
+    const vault = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, signer);
 
     await getBalance(usdc, signerAddress, "USDC", 6);
 
@@ -202,7 +228,6 @@ async function main() {
     const loanBalance = await usdc.balanceOf(signerAddress);
     console.log(`Available loan token balance: ${ethers.formatUnits(loanBalance, 6)}`);
 
-    let isRepayment = false;
     console.log(`⚠ Is a repayment? ${isRepayment}`);
     if (isRepayment) {
       // If balance is 0 but we have debt, need to handle it
@@ -221,17 +246,20 @@ async function main() {
         // Pass borrowShares and 0 assets to repay the exact shares owed
 
         console.log(`Approving loan tokens to Morpho for repayment...`);
-        const approveCcopTx = await usdc.approve(BASE_SEPOLIA.morphoBlue, loanBalance);
+        let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
+        const approveCcopTx = await usdc.approve(BASE_SEPOLIA.morphoBlue, loanBalance, { nonce: nonce++ });
         await approveCcopTx.wait();
         console.log(`✓ Approval confirmed (${approveCcopTx.hash})`);
 
         console.log(`Repaying ${debtAssets} loan tokens (${borrowShares.toString()} shares)...`);
+
+        
         const repayTx = await morpho.repay(
           marketParams,
           0,              // assets (0 = let shares determine the amount)
           borrowShares,   // shares - repay exact shares to close position
           signerAddress,
-          "0x"
+          "0x", { nonce: nonce++ }
         );
         await repayTx.wait();
         console.log(`✓ Repayment confirmed (${repayTx.hash})`);
@@ -240,34 +268,72 @@ async function main() {
         const positionAfterRepay = await morpho.position(USDC_MARKET_ID, signerAddress);
         const borrowSharesAfter = positionAfterRepay[1];
         console.log(`Borrow shares after repay: ${borrowSharesAfter.toString()}`);
+
+        // ========================================================================
+        // STEP 9: Withdraw Collateral from Morpho
+        // ========================================================================
+        logStep(9, "Withdraw Collateral from Morpho", "\x1b[33m");
+
+        const updatedPosition = await morpho.position(USDC_MARKET_ID, signerAddress);
+        let collateralToWithdraw = updatedPosition[2];
+        console.log("Position after repay:", updatedPosition);
+
+        console.log(`Withdrawing ${ethers.formatUnits(collateralToWithdraw, 18)} collateral from Morpho...`);
+
+        // ========================================================================
+        // [3/3] Verify Vault Configuration Before Deposit
+        // ========================================================================
+        console.log("[3/3] Verifying vault configuration...");
+
+        const queueLength = await vault.supplyQueueLength();
+        const queueLengthNum = Number(queueLength);
+        console.log(`Vault supply queue length: ${queueLengthNum}`);
+
+        if (queueLengthNum === 0) {
+          console.log("");
+          console.log("❌ VAULT NOT CONFIGURED - Cannot deposit!");
+          console.log("");
+          console.log("The vault needs to be configured with the market in its supply queue.");
+          console.log("");
+          console.log("STEPS TO MANUALLY CONFIGURE THE VAULT:");
+          console.log("");
+          console.log("1. Call acceptCap() with the market parameters to accept the pending supply cap");
+          console.log("2. Call setSupplyQueue() with the market ID to set the supply queue");
+          console.log("");
+          console.log("DETAILS:");
+          console.log(`  Vault Address: ${VAULT_ADDRESS}`);
+          console.log(`  Market ID:     ${MARKET_ID}`);
+          console.log("");
+          console.log("After configuring these, run this script again.");
+          console.log("");
+          process.exit(0);
+        }
+
+        console.log("✓ Vault is properly configured");
+        for (let i = 0; i < Math.min(queueLengthNum, 3); i++) {
+          const queuedMarket = await vault.supplyQueue(i);
+          console.log(`  Queue[${i}]: ${queuedMarket}`);
+        }
+        console.log("");
+
+        // Handle potential precision issues by reducing withdrawal amount by 1 wei if needed
+        try {
+          const withdrawCollateralTx = await morpho.withdrawCollateral(
+            marketParams,
+            collateralToWithdraw,
+            signerAddress,
+            signerAddress, { nonce: nonce++ }
+          );
+          await withdrawCollateralTx.wait();
+          console.log(`✓ Withdrawal confirmed (${withdrawCollateralTx.hash})`);
+        } catch (error: any) {
+          console.log(`⚠ Withdrawal failed...`);
+        }
+
+        await getBalance(collateral, signerAddress, "wETH", 18);
       }
 
-      // ========================================================================
-      // STEP 9: Withdraw Collateral from Morpho
-      // ========================================================================
-      logStep(9, "Withdraw Collateral from Morpho", "\x1b[33m");
 
-      const updatedPosition = await morpho.position(USDC_MARKET_ID, signerAddress);
-      let collateralToWithdraw = updatedPosition[2];
-      console.log("Position after repay:", updatedPosition);
-
-      console.log(`Withdrawing ${ethers.formatUnits(collateralToWithdraw, 18)} collateral from Morpho...`);
-
-      // Handle potential precision issues by reducing withdrawal amount by 1 wei if needed
-      try {
-        const withdrawCollateralTx = await morpho.withdrawCollateral(
-          marketParams,
-          collateralToWithdraw,
-          signerAddress,
-          signerAddress
-        );
-        await withdrawCollateralTx.wait();
-        console.log(`✓ Withdrawal confirmed (${withdrawCollateralTx.hash})`);
-      } catch (error: any) {
-        console.log(`⚠ Withdrawal failed...`);
-      }
-
-      await getBalance(collateral, signerAddress, "wETH", 18);
 
     } else {
       let nonce = 0;
@@ -301,9 +367,9 @@ async function main() {
       logStep(7, "Borrow loan token from Morpho Blue", "\x1b[33m");
 
       console.log(`Borrowing ${ethers.formatUnits(BORROW_AMOUNT, 6)} loan token...`);
-      if (nonce === 0 ){
+      if (nonce === 0) {
         nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
-      }else{
+      } else {
         nonce = nonce++;
       }
       const borrowTx = await morpho.borrow(
