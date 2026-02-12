@@ -214,7 +214,6 @@ async function main() {
     let isCreatingVault = false;
     let vaultAddress = "";
     const vaultFactory = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, deployer);
-    const vault = new ethers.Contract(vaultAddress, VAULT_ABI, deployer);
     if (isCreatingVault) {
       // ============================================================================
       // [3/3] Create Morpho Vault for MXNB_test

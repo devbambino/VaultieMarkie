@@ -30,8 +30,8 @@ const CONTRACT_ADDRESSES = {
   mockMXNB: "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E",
   mockWETH: "0x1ddebA64A8B13060e13d15504500Dd962eECD35B",
   wmUSDC: "0xCa4625EA7F3363d7E9e3090f9a293b64229FE55B",
-  wmusdcMxnbOracle: "0x3fC166B4eC635B1bddcD04AfaB1a012Ac7c4105E",
-  ethUsdcOracle: "0x3A19A14c709cf798E330277ed942475EBadAC74E",
+  wmusdcMxnbOracle: "0x9f4b138BF3513866153Af9f0A2794096DFebFaD4",
+  ethUsdcOracle: "0x97EBCdb0F784CDc9F91490bEBC9C8756491814a3",
   morphoUSDCVault: "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9", // Morpho USDC Vault - UPDATE AFTER CREATION
   morphoMXNBVault: "0xd6a83595b11CCC94bCcde4c9654bcaa6D423896e", // Morpho MXNB Vault - UPDATE AFTER CREATION
 };
@@ -43,13 +43,13 @@ const BASE_SEPOLIA = {
 };
 
 // UPDATE THIS from market-details.json after createMarket.ts
-const MXNB_MARKET_ID = "0xd7e3f24fd3d5aa3bec16877d2b745fbf8f1b550661cc3beacd3b3ec2621ad284"; // Will be set after createMarket.ts
+const MXNB_MARKET_ID = "0xf912f62db71d01c572b28b6953c525851f9e0660df4e422cec986e620da726df"; // Will be set after createMarket.ts
 
-// Amount to supply (100 USDC = 10 * 10^6 wei)
-const SUPPLY_AMOUNT = ethers.parseUnits("100", 6);
+// Collateral to supply (5 USDC = 5 * 10^6 wei)
+const SUPPLY_AMOUNT = ethers.parseUnits("5", 6);
 
-// Amount to borrow (50 MXNB = 5 * 10^6 wei)
-const BORROW_AMOUNT = ethers.parseUnits("50", 6);
+// Amount to borrow (21.7 MXNB = 21.7 * 10^6 wei)
+const BORROW_AMOUNT = ethers.parseUnits("21.7", 6);
 
 /**
  * Log helper with formatting
@@ -195,8 +195,8 @@ async function main() {
     await getBalance(morphoUSDCVault, signerAddress, "mUSDC", 18);
     await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
 
-    let fullFlow = false;
-    if (fullFlow) {
+    let isSupplyFlow = false;
+    if (isSupplyFlow) {
 
       // ========================================================================
       // STEP 2: Approve USDC to Morpho USDC Vault
@@ -212,11 +212,21 @@ async function main() {
       // STEP 3: Supply USDC to Morpho USDC Vault
       // ========================================================================
       logStep(3, "Supply USDC to Morpho Vault", "\x1b[33m");
+      let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
 
       console.log(`Supplying ${ethers.formatUnits(SUPPLY_AMOUNT, 6)} USDC to Morpho USDC Vault...`);
-      const depositTx = await morphoUSDCVault.deposit(SUPPLY_AMOUNT, signerAddress);
+      nonce++
+      const depositTx = await morphoUSDCVault.deposit(SUPPLY_AMOUNT, signerAddress, { nonce: nonce++ });
       await depositTx.wait();
       console.log(`✓ Supply confirmed (${depositTx.hash})`);
+
+
+
+    }
+
+    let isBorrowFlow = false;
+    if (isBorrowFlow) {
+      let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
 
       // Verify vaultUSDC received
       const vaultUsdcBalance = await getBalance(morphoUSDCVault, signerAddress, "mUSDC", 18);
@@ -230,197 +240,209 @@ async function main() {
 
       // Get vaultUSDC balance
       const vaultUsdcBalanceFinal = await morphoUSDCVault.balanceOf(signerAddress);
-      console.log(`Approving mUSDC to wmUSDC wrapper...`);
-      approveTx = await morphoUSDCVault.approve(CONTRACT_ADDRESSES.wmUSDC, vaultUsdcBalanceFinal);
-      await approveTx.wait();
-      console.log(`✓ Approval confirmed (${approveTx.hash})`);
 
-      console.log(`Wrapping ${ethers.formatUnits(vaultUsdcBalanceFinal, 18)} mUSDC into wmUSDC...`);
-      const wrapTx = await wmUSDC.deposit(vaultUsdcBalanceFinal, signerAddress);
-      await wrapTx.wait();
-      console.log(`✓ Wrap confirmed (${wrapTx.hash})`);
+      if (vaultUsdcBalance > 0) {
+        console.log(`Approving mUSDC to wmUSDC wrapper...`);
+        let approveTx = await morphoUSDCVault.approve(CONTRACT_ADDRESSES.wmUSDC, vaultUsdcBalanceFinal, { nonce: nonce++ });
+        await approveTx.wait();
+        console.log(`✓ Approval confirmed (${approveTx.hash})`);
+
+        console.log(`Wrapping ${ethers.formatUnits(vaultUsdcBalanceFinal, 18)} mUSDC into wmUSDC...`);
+        const wrapTx = await wmUSDC.deposit(vaultUsdcBalanceFinal, signerAddress, { nonce: nonce++ });
+        await wrapTx.wait();
+        console.log(`✓ Wrap confirmed (${wrapTx.hash})`);
+
+      }
 
       const wmUsdcBalance = await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
-      //console.log(`✓ WmUSDC received: ${ethers.formatUnits(wmUsdcBalance, 18)}`);
+      if (wmUsdcBalance > 0) {
+        // ========================================================================
+        // STEP 5: Approve WmUSDC to Morpho Blue
+        // ========================================================================
+        logStep(5, "Approve WmUSDC for Morpho Collateral", "\x1b[33m");
 
-      // Get mUSDC balance
-      /*const mUsdcBalance = await morphoUSDCVault.balanceOf(signerAddress);
-      console.log(`Approving mUSDC to WmUSDC wrapper...`);
-      approveTx = await morphoUSDCVault.approve(CONTRACT_ADDRESSES.wmUSDC, mUsdcBalance);
-      await approveTx.wait();
-      console.log(`✓ Approval confirmed (${approveTx.hash})`);
-      console.log(`Wrapping ${ethers.formatUnits(mUsdcBalance, 6)} mUSDC into WmUSDC...`);
-      const depositTx = await wmUSDC.deposit(aUsdcBalance, signerAddress);
-      await depositTx.wait();
-      console.log(`✓ Deposit confirmed (${depositTx.hash})`);
-      const waUsdcBalance = await getBalance(waUSDC, signerAddress, "WaUSDC");*/
+        console.log(`Approving WmUSDC to Morpho Blue...`);
+        const approveForMorphoTx = await wmUSDC.approve(BASE_SEPOLIA.morphoBlue, wmUsdcBalance, { nonce: nonce++ });
+        await approveForMorphoTx.wait();
+        console.log(`✓ Approval confirmed (${approveForMorphoTx.hash})`);
 
-      // ========================================================================
-      // STEP 5: Approve WmUSDC to Morpho Blue
-      // ========================================================================
-      logStep(5, "Approve WmUSDC for Morpho Collateral", "\x1b[33m");
+        // ========================================================================
+        // STEP 6: Supply WmUSDC as Collateral to Morpho
+        // ========================================================================
+        logStep(6, "Supply WmUSDC as Collateral to Morpho Blue", "\x1b[33m");
 
-      console.log(`Approving WmUSDC to Morpho Blue...`);
-      const approveForMorphoTx = await wmUSDC.approve(BASE_SEPOLIA.morphoBlue, wmUsdcBalance);
-      await approveForMorphoTx.wait();
-      console.log(`✓ Approval confirmed (${approveForMorphoTx.hash})`);
+        console.log(`Supplying ${ethers.formatUnits(wmUsdcBalance, 18)} WmUSDC as collateral...`);
+        const supplyCollateralTx = await morpho.supplyCollateral(marketParams, wmUsdcBalance, signerAddress, "0x", { nonce: nonce++ });
+        await supplyCollateralTx.wait();
+        console.log(`✓ Collateral supply confirmed (${supplyCollateralTx.hash})`);
+      }
 
-      // ========================================================================
-      // STEP 6: Supply WmUSDC as Collateral to Morpho
-      // ========================================================================
-      logStep(6, "Supply WmUSDC as Collateral to Morpho Blue", "\x1b[33m");
+      let isReadyToBorrow = true;
+      if (isReadyToBorrow) {
+        // ========================================================================
+        // STEP 7: Borrow MXNB_test from Morpho
+        // ========================================================================
+        logStep(7, "Borrow MXNB_test from Morpho Blue", "\x1b[33m");
 
-      console.log(`Supplying ${ethers.formatUnits(wmUsdcBalance, 18)} WmUSDC as collateral...`);
-      const supplyCollateralTx = await morpho.supplyCollateral(marketParams, wmUsdcBalance, signerAddress, "0x");
-      await supplyCollateralTx.wait();
-      console.log(`✓ Collateral supply confirmed (${supplyCollateralTx.hash})`);
+        console.log(`Borrowing ${ethers.formatUnits(BORROW_AMOUNT, 6)} MXNB_test...`);
+        const borrowTx = await morpho.borrow(
+          marketParams,
+          BORROW_AMOUNT,  // assets
+          0,              // shares (0 = calculate from assets)
+          signerAddress,
+          signerAddress, { nonce: nonce++ }
+        );
+        await borrowTx.wait();
+        console.log(`✓ Borrow confirmed (${borrowTx.hash})`);
 
-      // ========================================================================
-      // STEP 7: Borrow MXNB_test from Morpho
-      // ========================================================================
-      logStep(7, "Borrow MXNB_test from Morpho Blue", "\x1b[33m");
-
-      console.log(`Borrowing ${ethers.formatUnits(BORROW_AMOUNT, 6)} MXNB_test...`);
-      const borrowTx = await morpho.borrow(
-        marketParams,
-        BORROW_AMOUNT,  // assets
-        0,              // shares (0 = calculate from assets)
-        signerAddress,
-        signerAddress
-      );
-      await borrowTx.wait();
-      console.log(`✓ Borrow confirmed (${borrowTx.hash})`);
-
-      // Verify mockMXNB balance
-      await getBalance(mxnb, signerAddress, "MXNB", 6);
+        // Verify mockMXNB balance
+        await getBalance(mxnb, signerAddress, "MXNB", 6);
+      }
 
     }
 
+    let isRepayFlow = false;
+    if (isRepayFlow) {
+      // ========================================================================
+      // STEP 8: Repay MXNB_test Loan
+      // ========================================================================
+      logStep(8, "Repay MXNB_test Loan", "\x1b[33m");
 
-    // ========================================================================
-    // STEP 8: Repay MXNB_test Loan
-    // ========================================================================
-    logStep(8, "Repay MXNB_test Loan", "\x1b[33m");
+      // Get current position to check borrowShares
+      const positionBeforeRepay = await morpho.position(MXNB_MARKET_ID, signerAddress);
+      const borrowShares = positionBeforeRepay[1]; // borrowShares is the second element
+      console.log("Position before repay:", positionBeforeRepay);
 
-    // Get current position to check borrowShares
-    const positionBeforeRepay = await morpho.position(MXNB_MARKET_ID, signerAddress);
-    const borrowShares = positionBeforeRepay[1]; // borrowShares is the second element
-    console.log("Position before repay:", positionBeforeRepay);
+      console.log(`Current borrow shares: ${borrowShares.toString()}`);
 
-    console.log(`Current borrow shares: ${borrowShares.toString()}`);
+      // Calculate actual debt
+      const debtAssets = await calculateDebtFromShares(morpho, MXNB_MARKET_ID, borrowShares);
+      console.log(`Calculated debt: ${debtAssets} MXNB`);
 
-    // Calculate actual debt
-    const debtAssets = await calculateDebtFromShares(morpho, MXNB_MARKET_ID, borrowShares);
-    console.log(`Calculated debt: ${debtAssets} MXNB`);
+      const mxnbBalance = await mxnb.balanceOf(signerAddress);
+      console.log(`Available MXNB balance: ${ethers.formatUnits(mxnbBalance, 6)}`);
 
-    const mxnbBalance = await mxnb.balanceOf(signerAddress);
-    console.log(`Available MXNB balance: ${ethers.formatUnits(mxnbBalance, 6)}`);
+      // If balance is 0 but we have debt, need to handle it
+      if (borrowShares === 0n) {
+        console.log(`✓ No outstanding debt`);
+      } else if (mxnbBalance === 0n) {
+        console.log(`⚠ No MXNB balance but have outstanding debt of ${ethers.formatUnits(debtAssets, 6)} MXNB`);
+        console.log(`   Cannot repay without MXNB tokens`);
+        return;
+      } else {
+        // Repay using shares directly to avoid arithmetic issues
+        // Pass borrowShares and 0 assets to repay the exact shares owed
 
-    // If balance is 0 but we have debt, need to handle it
-    if (borrowShares === 0n) {
-      console.log(`✓ No outstanding debt`);
-    } else if (mxnbBalance === 0n) {
-      console.log(`⚠ No MXNB balance but have outstanding debt of ${ethers.formatUnits(debtAssets, 6)} MXNB`);
-      console.log(`   Cannot repay without MXNB tokens`);
-      return;
-    } else {
-      // Repay using shares directly to avoid arithmetic issues
-      // Pass borrowShares and 0 assets to repay the exact shares owed
+        console.log(`Approving MXNB to Morpho for repayment...`);
+        const approveCcopTx = await mxnb.approve(BASE_SEPOLIA.morphoBlue, mxnbBalance);
+        await approveCcopTx.wait();
+        console.log(`✓ Approval confirmed (${approveCcopTx.hash})`);
 
-      console.log(`Approving MXNB to Morpho for repayment...`);
-      const approveCcopTx = await mxnb.approve(BASE_SEPOLIA.morphoBlue, mxnbBalance);
-      await approveCcopTx.wait();
-      console.log(`✓ Approval confirmed (${approveCcopTx.hash})`);
+        let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
+        nonce++;
 
-      console.log(`Repaying ${debtAssets} MXNB (${borrowShares.toString()} shares)...`);
-      const repayTx = await morpho.repay(
-        marketParams,
-        0,              // assets (0 = let shares determine the amount)
-        borrowShares,   // shares - repay exact shares to close position
-        signerAddress,
-        "0x"
-      );
-      await repayTx.wait();
-      console.log(`✓ Repayment confirmed (${repayTx.hash})`);
+        console.log(`Repaying ${debtAssets} MXNB (${borrowShares.toString()} shares)...`);
+        const repayTx = await morpho.repay(
+          marketParams,
+          0,              // assets (0 = let shares determine the amount)
+          borrowShares,   // shares - repay exact shares to close position
+          signerAddress,
+          "0x", { nonce: nonce++ }
+        );
+        await repayTx.wait();
+        console.log(`✓ Repayment confirmed (${repayTx.hash})`);
 
-      // Check updated position
-      const positionAfterRepay = await morpho.position(MXNB_MARKET_ID, signerAddress);
-      const borrowSharesAfter = positionAfterRepay[1];
-      console.log(`Borrow shares after repay: ${borrowSharesAfter.toString()}`);
+        // Check updated position
+        const positionAfterRepay = await morpho.position(MXNB_MARKET_ID, signerAddress);
+        const borrowSharesAfter = positionAfterRepay[1];
+        console.log(`Borrow shares after repay: ${borrowSharesAfter.toString()}`);
+      }
+
+      // ========================================================================
+      // STEP 9: Withdraw WmUSDC Collateral from Morpho
+      // ========================================================================
+      logStep(9, "Withdraw WmUSDC Collateral from Morpho", "\x1b[33m");
+
+      const updatedPosition = await morpho.position(MXNB_MARKET_ID, signerAddress);
+      let collateralToWithdraw = updatedPosition[2];
+      console.log("Position after repay:", updatedPosition);
+
+      if (collateralToWithdraw > 0) {
+        console.log(`Withdrawing ${ethers.formatUnits(collateralToWithdraw, 18)} WmUSDC from Morpho...`);
+
+        let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
+
+        // Handle potential precision issues by reducing withdrawal amount by 1 wei if needed
+        try {
+          const withdrawCollateralTx = await morpho.withdrawCollateral(
+            marketParams,
+            collateralToWithdraw,
+            signerAddress,
+            signerAddress, { nonce: nonce++ }
+          );
+          await withdrawCollateralTx.wait();
+          console.log(`✓ Withdrawal confirmed (${withdrawCollateralTx.hash})`);
+        } catch (error: any) {
+          console.log(`⚠ Withdrawal failed...`);
+          // Reduce by 1 wei to handle rounding issues
+          /*const reducedAmount = collateralToWithdraw - 1n;
+          console.log(`Retrying withdrawal with ${ethers.formatUnits(reducedAmount, 18)} WmUSDC...`);
+    
+          const withdrawCollateralTx = await morpho.withdrawCollateral(
+            marketParams,
+            reducedAmount,
+            signerAddress,
+            signerAddress
+          );
+          await withdrawCollateralTx.wait();
+          console.log(`✓ Withdrawal confirmed (${withdrawCollateralTx.hash})`);
+          collateralToWithdraw = reducedAmount;*/
+        }
+
+      }
+
+
     }
 
-    // ========================================================================
-    // STEP 9: Withdraw WmUSDC Collateral from Morpho
-    // ========================================================================
-    logStep(9, "Withdraw WmUSDC Collateral from Morpho", "\x1b[33m");
+    let isUnwrappingFlow = false;
+    if (isUnwrappingFlow) {
+      let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
+      await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
 
-    const updatedPosition = await morpho.position(MXNB_MARKET_ID, signerAddress);
-    let collateralToWithdraw = updatedPosition[2];
-    console.log("Position after repay:", updatedPosition);
+      // ========================================================================
+      // STEP 10: Unwrap WmUSDC back to vaultUSDC
+      // ========================================================================
+      logStep(10, "Unwrap WmUSDC back to vaultUSDC", "\x1b[33m");
 
-    console.log(`Withdrawing ${ethers.formatUnits(collateralToWithdraw, 18)} WmUSDC from Morpho...`);
+      const wmUsdcFinalBalance = await wmUSDC.balanceOf(signerAddress);
+      console.log(`Redeeming ${ethers.formatUnits(wmUsdcFinalBalance, 18)} WmUSDC for vaultUSDC...`);
 
-    // Handle potential precision issues by reducing withdrawal amount by 1 wei if needed
-    try {
-      const withdrawCollateralTx = await morpho.withdrawCollateral(
-        marketParams,
-        collateralToWithdraw,
-        signerAddress,
-        signerAddress
-      );
-      await withdrawCollateralTx.wait();
-      console.log(`✓ Withdrawal confirmed (${withdrawCollateralTx.hash})`);
-    } catch (error: any) {
-      console.log(`⚠ Withdrawal failed...`);
-      // Reduce by 1 wei to handle rounding issues
-      /*const reducedAmount = collateralToWithdraw - 1n;
-      console.log(`Retrying withdrawal with ${ethers.formatUnits(reducedAmount, 18)} WmUSDC...`);
+      if (wmUsdcFinalBalance > 0) {
+        const redeemABI = ["function redeem(uint256 shares, address receiver, address owner) external returns (uint256)"];
+        const wmUsdcRedeem = new ethers.Contract(CONTRACT_ADDRESSES.wmUSDC, redeemABI, signer);
 
-      const withdrawCollateralTx = await morpho.withdrawCollateral(
-        marketParams,
-        reducedAmount,
-        signerAddress,
-        signerAddress
-      );
-      await withdrawCollateralTx.wait();
-      console.log(`✓ Withdrawal confirmed (${withdrawCollateralTx.hash})`);
-      collateralToWithdraw = reducedAmount;*/
+        const redeemTx = await wmUsdcRedeem.redeem(wmUsdcFinalBalance, signerAddress, signerAddress, { nonce: nonce++ });
+        await redeemTx.wait();
+        console.log(`✓ Redeem confirmed (${redeemTx.hash})`);
+      }
+
+      const vaultUsdcFinal = await getBalance(morphoUSDCVault, signerAddress, "mUSDC", 18);
+
+      // ========================================================================
+      // STEP 11: Withdraw from Morpho USDC Vault
+      // ========================================================================
+      logStep(11, "Withdraw from Morpho USDC Vault", "\x1b[33m");
+
+      console.log(`Withdrawing ${ethers.formatUnits(vaultUsdcFinal, 18)} USDC from Morpho Vault...`);
+
+      if (vaultUsdcFinal > 0) {
+        const withdrawTx = await morphoUSDCVault.redeem(vaultUsdcFinal, signerAddress, signerAddress, { nonce: nonce++ });
+        await withdrawTx.wait();
+        console.log(`✓ Withdrawal confirmed (${withdrawTx.hash})`);
+      }
+      const usdcFinal = await getBalance(usdc, signerAddress, "USDC", 6);
     }
 
-    await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
-
-    // ========================================================================
-    // STEP 10: Unwrap WmUSDC back to vaultUSDC
-    // ========================================================================
-    logStep(10, "Unwrap WmUSDC back to vaultUSDC", "\x1b[33m");
-
-    const wmUsdcFinalBalance = await wmUSDC.balanceOf(signerAddress);
-    console.log(`Redeeming ${ethers.formatUnits(wmUsdcFinalBalance, 18)} WmUSDC for vaultUSDC...`);
-
-    if (wmUsdcFinalBalance > 0) {
-      const redeemABI = ["function redeem(uint256 shares, address receiver, address owner) external returns (uint256)"];
-      const wmUsdcRedeem = new ethers.Contract(CONTRACT_ADDRESSES.wmUSDC, redeemABI, signer);
-
-      const redeemTx = await wmUsdcRedeem.redeem(wmUsdcFinalBalance, signerAddress, signerAddress);
-      await redeemTx.wait();
-      console.log(`✓ Redeem confirmed (${redeemTx.hash})`);
-    }
-
-    const vaultUsdcFinal = await getBalance(morphoUSDCVault, signerAddress, "mUSDC", 18);
-
-    // ========================================================================
-    // STEP 11: Withdraw from Morpho USDC Vault
-    // ========================================================================
-    logStep(11, "Withdraw from Morpho USDC Vault", "\x1b[33m");
-
-    console.log(`Withdrawing ${ethers.formatUnits(vaultUsdcFinal, 18)} USDC from Morpho Vault...`);
-
-    if (vaultUsdcFinal > 0) {
-      const withdrawTx = await morphoUSDCVault.redeem(vaultUsdcFinal, signerAddress, signerAddress);
-      await withdrawTx.wait();
-      console.log(`✓ Withdrawal confirmed (${withdrawTx.hash})`);
-    }
-    const usdcFinal = await getBalance(usdc, signerAddress, "USDC", 6);
 
     // ========================================================================
     // FINAL SUMMARY
@@ -431,7 +453,7 @@ async function main() {
     console.log("=".repeat(70));
     console.log("\x1b[0m");
     console.log("\nFinal Balances:");
-    console.log(`  USDC: ${ethers.formatUnits(usdcFinal, 6)}`);
+    console.log(`  USDC: ${ethers.formatUnits(await usdc.balanceOf(signerAddress), 6)}`);
     console.log(`  mUSDC: ${ethers.formatUnits(await morphoUSDCVault.balanceOf(signerAddress), 18)}`);
     console.log(`  WmUSDC: ${ethers.formatUnits(await wmUSDC.balanceOf(signerAddress), 18)}`);
     console.log(`  MXNB: ${ethers.formatUnits(await mxnb.balanceOf(signerAddress), 6)}`);

@@ -7,12 +7,10 @@
   "irm": "0x46415998764C29aB2a25CbeA6254146D50D22687",
   "lltv": "770000000000000000",
   "vaultConfig": {
-    "name": "MXNB Vault",
+    "name": "Morpho MXNB Vault",
     "symbol": "vMXNB",
     "initialTimelock": 0,
     "supplyCapAmount": "100000000000000"
   },
-  "vaultBlockNumber": 37459237,
-  "vaultTransactionHash": "0xfcf748b18130c3fc18908c0b3e621e8454fb805c5bb2dd46883110abbcc05597",
-  "timestamp": 1768617586633
+  "timestamp": 1770913210381
 }

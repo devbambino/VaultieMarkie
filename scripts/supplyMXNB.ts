@@ -110,7 +110,7 @@ async function main() {
       console.log("");
     }
 
-    let isDepositingMXNB = false;
+    let isDepositingMXNB = true;
     if (isDepositingMXNB) {
       // ========================================================================
       // [2/3] Approve mockMXNB to MetaMorpho Vault
@@ -171,7 +171,10 @@ async function main() {
       console.log(`Vault Address: ${VAULT_ADDRESS}`);
       console.log("");
 
-      const depositTx = await vault.deposit(DEPOSIT_AMOUNT, deployer.address);
+
+        let nonce = await ethers.provider.getTransactionCount(deployer.address, "pending");
+
+      const depositTx = await vault.deposit(DEPOSIT_AMOUNT, deployer.address, { nonce: nonce++ });
       const depositReceipt = await depositTx.wait();
 
       console.log(`✓ Deposit transaction confirmed!`);

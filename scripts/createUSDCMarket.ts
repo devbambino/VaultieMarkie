@@ -211,7 +211,6 @@ async function main() {
     let isCreatingVault = false;
     let vaultAddress = "";
     const vaultFactory = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, deployer);
-    const vault = new ethers.Contract(vaultAddress, VAULT_ABI, deployer);
     if (isCreatingVault) {
       // ============================================================================
       // [3/3] Create Morpho Vault for USDC_test
@@ -301,6 +300,8 @@ async function main() {
         console.log(
           `Submitting supply cap: ${ethers.formatUnits(VAULT_CONFIG.supplyCapAmount, 6)} USDC`
         );
+
+        const vault = new ethers.Contract(vaultAddress, VAULT_ABI, deployer);
 
         const submitCapTx = await vault.submitCap(marketParams, VAULT_CONFIG.supplyCapAmount);
         const submitCapReceipt = await submitCapTx.wait();
@@ -396,6 +397,8 @@ async function main() {
 
     } else {
       vaultAddress = CONTRACT_ADDRESSES.vaultAddress;
+
+      const vault = new ethers.Contract(vaultAddress, VAULT_ABI, deployer);
       try {
         // Try to set supply queue - this requires the market to have cap > 0
         // If it fails due to zero cap, we'll skip it (user can set it manually later)
