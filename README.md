@@ -31,6 +31,14 @@ This PoC demonstrates the complete lifecycle of DeFi composability across multip
 - ✅ **Interactive Frontend UI** for wallet integration, balance tracking, and transaction management
 - ✅ **No SDK abstractions** — pure smart contract calls for maximum transparency
 
+## IMPORTANT!!!!
+
+The app is working on Base Sepolia. You will need Sepolia ETH, USDC(Aave's version of USDC) and MXNB(our version of MXNB) for testing. For getting the tokens you need to:
+
+1. I've created a smart contract faucet for MXNB tokens, deployed to Base Sepolia. You only need to send Sepolia ETH from your wallet to the SC's address(`0xcC36c043eeDB630f001E3C892F4b5f37120fd003`) in Base Sepolia and the SC will automatically transfer back the corresponding amount of MXNB tokens(the FX rate is 1 ETH to 33548.87 MXNB). The Faucet smart contract is located at `/contracts/MXNBFaucet.sol`. For checking the real time liquidity of the faucet in Sepolia Basescan [click here](https://sepolia.basescan.org/address/0xcC36c043eeDB630f001E3C892F4b5f37120fd003), which is more than 1,000,000 MXNB.
+
+2. For getting USDC enter Aave's faucet in Base Sepolia here(https://app.aave.com/faucet/), remember to enable the testnet mode.
+
 ---
 
 ## Project Structure
