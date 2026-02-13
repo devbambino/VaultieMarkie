@@ -1,13 +1,3 @@
-/**
- * Mint & Supply Script
- * 
- * Prerequisites:
- * 1. npx hardhat run scripts/deploy.ts --network baseSepolia
- * 2. npx hardhat run scripts/createMarket.ts --network baseSepolia
- * 
- * Run: npx hardhat run scripts/mintAndSupply.ts --network baseSepolia
- */
-
 import { ethers } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
@@ -32,7 +22,7 @@ let MARKET_ID: string;
 let marketParams: any;
 
 try {
-  const marketDetailsPath = path.join(__dirname, "../market-details-mxn.json");
+  const marketDetailsPath = path.join(__dirname, "../market-details-mxnb.json");
   const marketDetails = JSON.parse(fs.readFileSync(marketDetailsPath, "utf-8"));
   VAULT_ADDRESS = marketDetails.vaultAddress;
   MARKET_ID = marketDetails.marketId;

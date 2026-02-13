@@ -1,81 +1,6 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "/workspaces/VaultieMarkie/contracts/FixedPriceOracle.sol": {
-      "lastModificationDate": 1770658831829,
-      "contentHash": "e87e94b7ab31a953bcf45f1e65f95e52",
-      "sourceName": "contracts/FixedPriceOracle.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "evmVersion": "paris",
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.19"
-      ],
-      "artifacts": [
-        "FixedPriceOracle"
-      ]
-    },
-    "/workspaces/VaultieMarkie/contracts/MockCCOP.sol": {
-      "lastModificationDate": 1768604535332,
-      "contentHash": "57a7c88de41f22f6b30ef75937f6a8dc",
-      "sourceName": "contracts/MockCCOP.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "evmVersion": "paris",
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/token/ERC20/ERC20.sol",
-        "@openzeppelin/contracts/access/Ownable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.19"
-      ],
-      "artifacts": [
-        "MockCCOP"
-      ]
-    },
     "/workspaces/VaultieMarkie/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
       "lastModificationDate": 1768605011233,
       "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
@@ -680,47 +605,6 @@
         "IERC165"
       ]
     },
-    "/workspaces/VaultieMarkie/contracts/WaUSDC.sol": {
-      "lastModificationDate": 1770225826974,
-      "contentHash": "e076c4fc073886b6296e3448e356b7f7",
-      "sourceName": "contracts/WaUSDC.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "evmVersion": "paris",
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/token/ERC20/ERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/access/Ownable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.19"
-      ],
-      "artifacts": [
-        "WaUSDC"
-      ]
-    },
     "/workspaces/VaultieMarkie/contracts/EthUsdcOracle.sol": {
       "lastModificationDate": 1770741127415,
       "contentHash": "14524b02b22be3e4b7605b7b4b5a9f1e",
@@ -910,6 +794,45 @@
       ],
       "artifacts": [
         "WmusdcMxnbOracle"
+      ]
+    },
+    "/workspaces/VaultieMarkie/contracts/MXNBFaucet.sol": {
+      "lastModificationDate": 1770952187671,
+      "contentHash": "f50d25e1628d7831a45ebc41ec2ad692",
+      "sourceName": "contracts/MXNBFaucet.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "MXNBFaucet"
       ]
     }
   }

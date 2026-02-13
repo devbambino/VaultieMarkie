@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aave + Morpho Blue PoC | Base Sepolia</title>
+    <title>MXNB DeFi Loans | PoC</title>
     <style>
         * {
             margin: 0;
@@ -369,8 +369,8 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>🏛️ Aave + Morpho Blue PoC</h1>
-            <p>End-to-End Yield Generation & Collateralized Lending on Base Sepolia</p>
+            <h1>💎 MXNB DeFi Loans PoC</h1>
+            <p>Yield Generation & Collateralized Lending with Morpho Vaults on Base Sepolia</p>
             
             <div class="network-info">
                 <div class="info-badge">
@@ -397,23 +397,23 @@
             <h2>📋 Workflow Progress</h2>
             <div class="workflow-steps" id="workflowSteps">
                 <div class="step" id="step-1">Supply USDC</div>
-                <div class="step" id="step-2">Wrap aToken</div>
+                <div class="step" id="step-2">Wrap mUSDC</div>
                 <div class="step" id="step-3">Collateralize</div>
-                <div class="step" id="step-4">Borrow cCOP</div>
+                <div class="step" id="step-4">Borrow MXNB</div>
                 <div class="step" id="step-5">Repay Loan</div>
                 <div class="step" id="step-6">Withdraw Collateral</div>
-                <div class="step" id="step-7">Unwrap aToken</div>
+                <div class="step" id="step-7">Unwrap mUSDC</div>
                 <div class="step" id="step-8">Withdraw USDC</div>
             </div>
         </div>
 
         <!-- Main Content -->
         <div class="main-grid">
-            <!-- Aave Section -->
+            <!-- Morpho USDC Vault Section -->
             <div class="card">
                 <h2>
                     <span class="card-icon">🏦</span>
-                    Aave V3
+                    Morpho USDC Vault
                 </h2>
                 <div class="status" id="aaveStatus"></div>
                 
@@ -423,7 +423,7 @@
                         <span class="balance-value" id="usdcBalance">0.00</span>
                     </div>
                     <div class="balance-row">
-                        <span class="balance-label">aUSDC Balance</span>
+                        <span class="balance-label">mUSDC Balance</span>
                         <span class="balance-value" id="ausdcBalance">0.00</span>
                     </div>
                 </div>
@@ -435,7 +435,7 @@
 
                 <div class="button-group">
                     <button class="btn" onclick="approveAndSupplyUsdc()" disabled id="supplyBtn">
-                        Supply to Aave
+                        Supply to Morpho
                     </button>
                     <button class="btn" onclick="withdrawFromAave()" disabled id="withdrawAaveBtn">
                         Withdraw
@@ -443,31 +443,31 @@
                 </div>
             </div>
 
-            <!-- WaUSDC Section -->
+            <!-- WmUSDC Section -->
             <div class="card">
                 <h2>
                     <span class="card-icon">📦</span>
-                    WaUSDC Wrapper
+                    WmUSDC Wrapper
                 </h2>
                 <div class="status" id="wausdcStatus"></div>
                 
                 <div class="balances">
                     <div class="balance-row">
-                        <span class="balance-label">WaUSDC Balance</span>
+                        <span class="balance-label">WmUSDC Balance</span>
                         <span class="balance-value" id="wausdcBalance">0.00</span>
                     </div>
                     <div class="balance-row">
-                        <span class="balance-label">Price per Share</span>
-                        <span class="balance-value" id="sharePrice">1.00</span>
+                        <span class="balance-label">Vault Token</span>
+                        <span class="balance-value" id="sharePrice">Wrapper</span>
                     </div>
                 </div>
 
                 <div class="button-group">
                     <button class="btn" onclick="wrapAusdcToWausdc()" disabled id="wrapBtn">
-                        Wrap aUSDC
+                        Wrap mUSDC
                     </button>
                     <button class="btn" onclick="unwrapWausdcToAusdc()" disabled id="unwrapBtn">
-                        Unwrap to aUSDC
+                        Unwrap to mUSDC
                     </button>
                 </div>
             </div>
@@ -482,17 +482,17 @@
                 
                 <div class="balances">
                     <div class="balance-row">
-                        <span class="balance-label">Collateral (WaUSDC)</span>
+                        <span class="balance-label">Collateral (WmUSDC)</span>
                         <span class="balance-value" id="morphoCollateral">0.00</span>
                     </div>
                     <div class="balance-row">
-                        <span class="balance-label">Borrow (cCOP)</span>
+                        <span class="balance-label">Borrow (MXNB)</span>
                         <span class="balance-value" id="morphoBorrow">0.00</span>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>Amount to Borrow (cCOP)</label>
+                    <label>Amount to Borrow (MXNB)</label>
                     <input type="number" id="borrowAmount" placeholder="500" value="500" disabled>
                 </div>
 
@@ -501,41 +501,41 @@
                         Supply Collateral
                     </button>
                     <button class="btn" onclick="withdrawCollateralFromMorpho()" disabled id="withdrawCollateralBtn">
-                        Withdraw
+                        Withdraw Collateral
                     </button>
                 </div>
 
                 <div class="button-group" style="margin-top: 10px;">
                     <button class="btn" onclick="borrowFromMorpho()" disabled id="borrowBtn">
-                        Borrow cCOP
+                        Borrow MXNB
                     </button>
                     <button class="btn" onclick="repayMorphoLoan()" disabled id="repayBtn">
-                        Repay cCOP
+                        Repay MXNB
                     </button>
                 </div>
             </div>
 
-            <!-- cCOP Token Section -->
+            <!-- MXNB Token Section -->
             <div class="card">
                 <h2>
                     <span class="card-icon">💰</span>
-                    cCOP_test Token
+                    MXNB_test Token
                 </h2>
                 <div class="status" id="ccopStatus"></div>
                 
                 <div class="balances">
                     <div class="balance-row">
-                        <span class="balance-label">cCOP Balance</span>
+                        <span class="balance-label">MXNB Balance</span>
                         <span class="balance-value" id="ccopBalance">0.00</span>
                     </div>
                     <div class="balance-row">
-                        <span class="balance-label">Mint (Testing)</span>
-                        <span class="balance-value" id="ccopMint">Owner only</span>
+                        <span class="balance-label">Loan Token</span>
+                        <span class="balance-value" id="ccopMint">Test Token</span>
                     </div>
                 </div>
 
                 <p style="color: #666; font-size: 12px; margin-top: 15px;">
-                    cCOP_test is a mock token for testing. It can be borrowed from Morpho Blue using WaUSDC collateral.
+                    MXNB_test is a mock token for testing. It can be borrowed from Morpho Blue using WmUSDC collateral.
                 </p>
             </div>
         </div>
@@ -549,7 +549,7 @@
     </div>
 
     <!-- Load ethers.js v6 from CDN -->
-    <script src="https://cdn.ethers.org/lib/ethers-6.4.0.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.4.0/ethers.umd.min.js"></script>
     
     <!-- Include the PoC application -->
     <script src="app.js"></script>

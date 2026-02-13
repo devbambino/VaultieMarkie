@@ -17,6 +17,6 @@
     "strictNullChecks": true,
     "strictFunctionTypes": true
   },
-  "include": ["scripts/**/*", "contracts/**/*", "hardhat.config.ts"],
+  "include": ["scripts/**/*", "contracts/**/*", "hardhat.config.ts", "dev/mintAndSupply.ts", "dev/createMarket.ts"],
   "exclude": ["node_modules", "dist"]
 }

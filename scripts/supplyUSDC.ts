@@ -1,18 +1,3 @@
-/**
- * Mint & Supply Script
- * 
- * This script performs the following:
- * 1. Mint 100 MockCCOP tokens to the deployer
- * 2. Approve MockCCOP to the MetaMorpho Vault
- * 3. Deposit MockCCOP into the MetaMorpho Vault
- * 
- * Prerequisites:
- * 1. npx hardhat run scripts/deploy.ts --network baseSepolia
- * 2. npx hardhat run scripts/createMarket.ts --network baseSepolia
- * 
- * Run: npx hardhat run scripts/mintAndSupply.ts --network baseSepolia
- */
-
 import { ethers } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";

@@ -1,27 +1,3 @@
-/**
- * Morpho Blue Market Creation & Vault Setup Script
- * 
- * This script performs the following:
- * 1. Creates a Morpho Blue market with the following parameters:
- *    - Loan token: MockCCOP (cCOP_test)
- *    - Collateral token: WaUSDC
- *    - Oracle: FixedPriceOracle
- *    - Interest Rate Model: Morpho's default IRM
- *    - LLTV: 77% (0.77 * 10^18)
- * 
- * 2. Creates a Morpho Vault with MockCCOP as the asset
- * 
- * 3. Sets up the vault to manage the created market with:
- *    - Supply cap (100000000 cCOP)
- *    - Supply queue configuration
- * 
- * Prerequisites:
- * 1. Deploy contracts first: npx hardhat run scripts/deploy.ts --network baseSepolia
- * 2. Update the CONTRACT_ADDRESSES below with deployed contract addresses
- * 
- * Run: npx hardhat run scripts/createMarket.ts --network baseSepolia
- */
-
 import { ethers } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";

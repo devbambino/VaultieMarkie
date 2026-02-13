@@ -1,24 +1,3 @@
-/**
- * End-to-End Demo Flow Script
- * 
- * This script demonstrates the complete lifecycle:
- * 1. Supply USDC to Morpho Vaults → receive vaultUSDC (The USDC Vault and ETH market should be created in Base Sepolia using the createMarket.ts script as reference)
- * 2. Wrap vaultUSDC into WmUSDC
- * 3. Supply WmUSDC as collateral to Morpho
- * 4. Borrow MXNB_test from Morpho
- * 5. Repay MXNB_test
- * 6. Withdraw WmUSDC collateral from Morpho
- * 7. Unwrap WmUSDC back into vaultUSDC
- * 8. Withdraw from Morpho → receive USDC
- * 
- * Prerequisites:
- * 1. npx hardhat run scripts/deploy.ts --network baseSepolia
- * 2. npx hardhat run scripts/createMarket.ts --network baseSepolia
- * 3. Create Morpho USDC Vault using Vault Factory (similar to createMarket.ts)
- * 
- * Run: npx hardhat run scripts/demoFlow.ts --network baseSepolia
- */
-
 import { ethers } from "hardhat";
 import * as ethersLib from "ethers";
 import * as fs from "fs";

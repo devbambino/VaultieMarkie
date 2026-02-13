@@ -1,26 +1,35 @@
 # Morpho Blue V1 Proof-of-Concept (PoC)
 
-A complete end-to-end demonstration of **yield generation** via **Morpho Blue V1** via **collateralized lending** on **Base Sepolia testnet**.
+A complete end-to-end demonstration of **yield generation** and **collateralized lending** using **Morpho Blue V1** and **Morpho Vaults** on **Base Sepolia testnet**.
 
 ## Overviews
 
-This PoC demonstrates the complete lifecycle of DeFi composability:
+This PoC demonstrates the complete lifecycle of DeFi composability across multiple markets:
 
-1. **Supply USDC to Morpho** → Earn yield via hyperUSDC (interest-bearing token)
-2. **Wrap hyperUSDC into waUSDC** → ERC-4626 vault with non-rebasing shares
-3. **Supply waUSDC as collateral to Morpho** → Use wrapped yield as backing
-4. **Borrow cCOP_test from Morpho** → Access liquidity
+### USDC Market Flow
+1. **Supply USDC to Morpho Vault** → Earn yield via mUSDC (Morpho USDC Vault token)
+2. **Wrap mUSDC into WmUSDC** → ERC-4626 vault with non-rebasing shares
+3. **Supply WmUSDC as collateral to Morpho Blue** → Use wrapped yield as collateral
+4. **Borrow from market** → Access liquidity
 5. **Repay loan** → Settle borrowing position
 6. **Withdraw & unwrap** → Convert back to USDC with accrued yield
 
+### MXNB Market Flow
+1. **Supply MXNB to Morpho Vault** → Earn yield via mMXNB (Morpho MXNB Vault token)
+2. **Supply as collateral to Morpho Blue** → Use yield-bearing token as backing
+3. **Borrow USDC from market** → Access liquidity against MXNB collateral
+4. **Repay and withdraw** → Settle position and recover collateral
+
 ### Key Features
 
+- ✅ **Multi-market support** — USDC and MXNB markets with separate configurations
+- ✅ **Morpho Vaults** — Direct integration with Morpho's yield-bearing tokens (mUSDC, mMXNB)
+- ✅ **ERC-4626 compliant wrapper** (WmUSDC) for additional composability
 - ✅ **Direct contract interaction** using ethers.js v6 and explicit ABIs
-- ✅ **ERC-4626 compliant wrapper** around Morpho Vault Token
-- ✅ **Morpho Blue market creation** programmatically
-- ✅ **No SDK abstractions** — pure smart contract calls
-- ✅ **Frontend UI** for wallet integration and transaction tracking
-- ✅ **Comprehensive Hardhat scripts** for deployment and demo
+- ✅ **Morpho Blue market creation** programmatically with custom oracles
+- ✅ **Granular script operations** — Deploy, create markets, supply, borrow, repay individually
+- ✅ **Interactive Frontend UI** for wallet integration, balance tracking, and transaction management
+- ✅ **No SDK abstractions** — pure smart contract calls for maximum transparency
 
 ---
 
@@ -29,16 +38,23 @@ This PoC demonstrates the complete lifecycle of DeFi composability:
 ```
 VaultieMarkie/
 ├── contracts/
-│   ├── MockCCOP.sol                 # Mock ERC20 for borrowing
-│   ├── WaUSDC.sol                   # ERC-4626 wrapper around aUSDC
-│   └── FixedPriceOracle.sol         # Simple oracle for Morpho Blue
+│   ├── MockMXNB.sol                 # Mock MXNB token for testing
+│   ├── MockWETH.sol                 # Mock WETH token (placeholder)
+│   ├── WmUSDC.sol                   # ERC-4626 wrapper around Morpho mUSDC
+│   ├── EthUsdcOracle.sol            # Price oracle for ETH/USDC pair
+│   └── WmusdcMxnbOracle.sol         # Price oracle for WmUSDC/MXNB pair
 ├── scripts/
-│   ├── deploy.ts                    # Deploy all contracts
-│   ├── createMarket.ts              # Create Morpho market
-│   └── demoFlow.ts                  # End-to-end demo flow
+│   ├── deploy.ts                    # Deploy mock tokens and wrapper contract
+│   ├── createUSDCMarket.ts          # Create Morpho Blue market for USDC
+│   ├── createMXNBMarket.ts          # Create Morpho Blue market for MXNB
+│   ├── supplyUSDC.ts                # Supply to USDC Morpho Vault
+│   ├── supplyMXNB.ts                # Supply to MXNB Morpho Vault
+│   ├── borrowUSDC.ts                # Borrow & repay from USDC market
+│   ├── borrowMXNB.ts                # Borrow & repay from MXNB market
+│   └── demoFlow.ts                  # End-to-end demo across multiple markets
 ├── frontend/
-│   ├── index.html                   # Main UI
-│   └── app.js                       # ethers.js v6 interaction logic
+│   ├── index.html                   # Interactive UI with market operations
+│   └── app.js                       # ethers.js v6 transaction logic
 ├── src/
 │   └── config.ts                    # Centralized addresses & ABIs
 ├── hardhat.config.ts                # Hardhat configuration
@@ -135,70 +151,87 @@ npm run deploy
 
 ```
 Deployed Addresses:
-  MockCCOP:         0x...
-  WaUSDC:           0x...
-  FixedPriceOracle: 0x...
+  MockMXNB:         0x...
+  MockWETH:         0x...
+  WmUSDC:           0x...
+  WmusdcMxnbOracle: 0x...
+  EthUsdcOracle:    0x...
 ```
 
 **Action:** Copy these addresses to:
-1. `src/config.ts` (update addresses)
-2. `frontend/app.js` (update CONFIG object)
+1. `frontend/app.js` (update `CONTRACT_ADDRESSES` object)
+2. Market creation scripts will reference these automatically
 
-### Step 3: Create Morpho Market
+### Step 3: Create Markets
 
+**Create USDC Market:**
 ```bash
-npm run create-market
+npm run create-market-usd
 ```
 
-First, **update** `scripts/createMarket.ts` with deployed addresses:
-
-```typescript
-const CONTRACT_ADDRESSES = {
-  mockCCOP: "0x...",        // From deploy output
-  waUSDC: "0x...",          // From deploy output
-  fixedPriceOracle: "0x...", // From deploy output
-};
+**Output:** Saves market details to `market-details-usdc.json`:
+```json
+{
+  "vaultAddress": "0x...",
+  "marketId": "0x...",
+  "loanToken": "0x...",
+  "collateralToken": "0x...",
+  "oracle": "0x...",
+  "irm": "0x...",
+  "lltv": "770000000000000000"
+}
 ```
 
-**Output:**
-
-```
-Market Creation Complete
-Market ID: 0x...
+**Create MXNB Market:**
+```bash
+npm run create-market-mxn
 ```
 
-**Action:** Copy Market ID to:
-1. `scripts/demoFlow.ts`
-2. `frontend/app.js`
+**Output:** Saves market details to `market-details-mxnb.json`
 
-### Step 4: Run Demo Flow
+### Step 4: Supply to Morpho Vaults
 
+**Supply USDC:**
+```bash
+npm run supply-usd
+```
+
+**Supply MXNB:**
+```bash
+npm run supply-mxn
+```
+
+These scripts:
+1. Deposit tokens to Morpho's yield-bearing vaults (mUSDC / mMXNB)
+2. Approve vault token for collateral supply to Morpho Blue
+3. Supply collateral to respective markets
+
+### Step 5: Borrow & Repay
+
+**Borrow from USDC Market:**
+```bash
+npm run borrow-usd
+```
+
+**Borrow from MXNB Market (if MXNB collateral):**
+```bash
+npm run supply-mxn
+```
+
+These scripts demonstrate:
+1. ✓ Supplying collateral to Morpho Blue market
+2. ✓ Borrowing against collateral
+3. ✓ Repaying borrowed amount
+4. ✓ Withdrawing collateral
+
+### Step 6: Run Full Demo (Optional)
+
+Execute all operations in sequence:
 ```bash
 npm run demo
 ```
 
-This executes the complete end-to-end flow:
-
-1. ✓ Supplies USDC to Aave
-2. ✓ Wraps aUSDC into WaUSDC
-3. ✓ Supplies WaUSDC as collateral
-4. ✓ Borrows cCOP_test
-5. ✓ Repays loan
-6. ✓ Withdraws collateral
-7. ✓ Unwraps to aUSDC
-8. ✓ Withdraws final USDC + yield
-
-**Expected Output:**
-
-```
-Final Balances:
-  USDC: 1000.00
-  aUSDC: 0.00
-  WaUSDC: 0.00
-  cCOP: 0.00
-
-✓ All flows completed successfully
-```
+This runs the complete end-to-end flow across multiple markets.
 
 ---
 
@@ -214,36 +247,63 @@ Open: http://localhost:8000
 
 ### Features
 
-- **Connect MetaMask** to Base Sepolia
-- **Supply USDC** to Aave V3
-- **Wrap/Unwrap** aUSDC ↔ WaUSDC
-- **Supply Collateral** to Morpho Blue
-- **Borrow/Repay** cCOP_test
-- **Real-time Balance Updates**
-- **Transaction Logs** with links to BaseScan
+The interactive frontend (`frontend/index.html` and `frontend/app.js`) provides:
+
+**Multi-Market Dashboard:**
+- Real-time wallet balance display (USDC, MXNB, mUSDC, mMXNB, WmUSDC)
+- Separate panels for USDC and MXNB market operations
+- Network status and account information
+
+**USDC Market Operations:**
+- Supply USDC → mUSDC (Morpho USDC Vault)
+- Wrap mUSDC → WmUSDC (ERC-4626)
+- Supply WmUSDC as collateral
+- Borrow from USDC-based market
+- Repay borrowed amount
+- Withdraw collateral
+
+**MXNB Market Operations:**
+- Supply MXNB → mMXNB (Morpho MXNB Vault)
+- Supply mMXNB as collateral
+- Borrow USDC against MXNB collateral
+- Repay and withdraw
+
+**Advanced Features:**
+- Transaction status tracking with BaseScan links
+- Balance refreshing and approval status
+- Health factor calculations
+- Borrowing capacity indicators
+- Error handling with clear messages
 
 ### Configuration
 
-Update `frontend/app.js`:
+Update `frontend/app.js` with deployed addresses:
 
 ```javascript
-const CONFIG = {
-    mockCCOP: "0x...",           // From deploy output
-    waUSDC: "0x...",             // From deploy output
-    fixedPriceOracle: "0x...",   // From deploy output
-    // ... rest of config
+const CONTRACT_ADDRESSES = {
+  usdc: "0x...",                    // From Aave (Base Sepolia)
+  mockMXNB: "0x...",                // From deploy output
+  wmUSDC: "0x...",                  // From deploy output
+  morphoUSDCVault: "0x...",         // Morpho USDC Vault
+  morphoMXNBVault: "0x...",         // Morpho MXNB Vault
+  morphoBlue: "0x...",              // Morpho Blue core
+  wmusdcMxnbOracle: "0x...",        // From deploy output
+  ethUsdcOracle: "0x...",           // From deploy output
 };
 
-const MARKET_ID = "0x...";       // From createMarket output
+const MARKET_IDS = {
+  usdc: "0x...",                    // From createUSDCMarket output
+  mxnb: "0x...",                    // From createMXNBMarket output
+};
 ```
 
 ---
 
 ## Smart Contracts
 
-### 1. MockCCOP.sol
+### 1. MockMXNB.sol
 
-**Purpose:** ERC20 mock token for borrowing in Morpho market.
+**Purpose:** ERC20 mock token for testing MXNB market operations.
 
 **Key Functions:**
 - `mint(address to, uint256 amount)` — Owner-only minting
@@ -252,77 +312,163 @@ const MARKET_ID = "0x...";       // From createMarket output
 
 **Decimals:** 6 (matches USDC)
 
-### 2. WaUSDC.sol
+### 2. MockWETH.sol
 
-**Purpose:** ERC-4626 vault wrapper around Aave aUSDC.
+**Purpose:** ERC20 mock token for WETH placeholder testing.
 
 **Key Functions:**
-- `deposit(uint256 assets, address receiver) → uint256 shares` — Supply aUSDC, receive shares
-- `withdraw(uint256 assets, address receiver, address owner) → uint256 shares` — Withdraw aUSDC, burn shares
-- `totalAssets() → uint256` — Return current aUSDC balance (includes accrued yield)
+- Standard ERC20 interface
+- `deposit()` / `withdraw()` — Placeholder methods
+- Decimals: 18
+
+### 3. WmUSDC.sol
+
+**Purpose:** ERC-4626 vault wrapper around Morpho's mUSDC token.
+
+**Key Functions:**
+- `deposit(uint256 assets, address receiver) → uint256 shares` — Supply mUSDC, receive shares
+- `redeem(uint256 shares, address receiver, address owner) → uint256 assets` — Burn shares, receive mUSDC
+- `withdraw(uint256 assets, address receiver, address owner) → uint256 shares` — Withdraw mUSDC, burn shares
+- `totalAssets() → uint256` — Return current mUSDC balance (includes accrued yield)
 - `convertToShares(uint256 assets) → uint256` — Preview shares for assets
 - `convertToAssets(uint256 shares) → uint256` — Preview assets for shares
 
 **Key Properties:**
-- Non-rebasing shares (unlike aUSDC)
-- Price per share increases as Aave yields accrue
+- Non-rebasing shares (unlike mUSDC)
+- Price per share increases as Morpho yields accrue
 - Fully ERC-4626 compliant
+- Enables composability for collateral in Morpho Blue
 
-### 3. FixedPriceOracle.sol
+### 4. EthUsdcOracle.sol
 
-**Purpose:** Simple oracle for Morpho Blue market price feed.
+**Purpose:** Price oracle providing ETH/USDC exchange rate for Morpho Blue markets.
 
 **Key Function:**
-- `price() → uint256` — Returns fixed price of 1e36
+- `latestAnswer() → uint256` — Returns current ETH/USDC price in 8 decimal format
 
 **Pricing Logic:**
 
-For Morpho Blue, oracle price format is:
+For Morpho Blue oracle requirements:
 ```
-price = collateral_price_in_loan_token * 10^(loan_decimals - collateral_decimals + 36)
-```
-
-For equal decimals (both 6):
-```
-price = 1 * 10^(6 - 6 + 36) = 1e36
+price = collateral_price * 10^(loan_decimals + 36 - collateral_decimals)
 ```
 
-This means: **1 WaUSDC (collateral) = 1 cCOP (loan)**
+### 5. WmusdcMxnbOracle.sol
+
+**Purpose:** Price oracle for WmUSDC/MXNB market pricing.
+
+**Key Function:**
+- `latestAnswer() → uint256` — Returns WmUSDC price relative to MXNB
+
+**Used In:** USDC market where MXNB is borrowed against WmUSDC collateral
 
 ---
 
-## Morpho Blue Market Details
+## Morpho Blue Markets
 
-### Market Creation Parameters
+This PoC creates and manages two distinct Morpho Blue markets:
 
+### Market 1: USDC Loan / WmUSDC Collateral
+
+**Configuration:**
 ```solidity
 struct MarketParams {
-    address loanToken;          // MockCCOP
-    address collateralToken;    // WaUSDC
-    address oracle;             // FixedPriceOracle
+    address loanToken;          // USDC (Base Sepolia testnet)
+    address collateralToken;    // WmUSDC (ERC-4626 wrapper)
+    address oracle;             // EthUsdcOracle or WmusdcMxnbOracle
     address irm;                // Morpho DefaultIRM
     uint256 lltv;               // 770000000000000000 (77%)
 }
 ```
 
-### How It Works
+**Operations:**
+1. Supply USDC to Morpho Vault → receive mUSDC
+2. Wrap mUSDC into WmUSDC
+3. Supply WmUSDC as collateral to Morpho Blue
+4. Borrow USDC up to 77% of collateral value
+5. Repay and withdraw
 
-1. **Supply Collateral:** User supplies WaUSDC to Morpho for this market
-2. **Borrow:** User borrows up to 77% of collateral value in cCOP
-3. **Interest:** IRM accrues interest on borrowed amount
-4. **Liquidation:** If health factor < 1.0, position can be liquidated
+### Market 2: USDC Loan / MXNB Collateral (Optional)
+
+**Configuration:**
+```solidity
+struct MarketParams {
+    address loanToken;          // USDC
+    address collateralToken;    // MXNB (mock)
+    address oracle;             // EthUsdcOracle
+    address irm;                // Morpho DefaultIRM
+    uint256 lltv;               // 770000000000000000 (77%)
+}
+```
+
+**Note:** Can be enabled by modifying `scripts/createUSDCMarket.ts` to accept MXNB collateral instead of WmUSDC.
 
 ### Health Factor
 
 ```
-healthFactor = (collateralValue * 0.77) / borrowedValue
+healthFactor = (collateralValue * LLTV) / borrowedValue
 ```
 
-Must be > 1.0 to avoid liquidation.
+**Must be > 1.0** to avoid liquidation risk.
+
+**Example:**
+- Supply 100 WmUSDC (= $100 value)
+- 77% LTV → Can borrow up to $77
+- If you borrow $60 → Health Factor = 77 / 60 = 1.28 ✓
+- If you borrow $77 → Health Factor = 77 / 77 = 1.0 ⚠️ (liquidation risk)
 
 ---
 
-## Debugging & Troubleshooting
+## Development Workflow
+
+### Quick Start (All Steps)
+
+```bash
+# 1. Install dependencies
+npm install --legacy-peer-deps
+
+# 2. Compile contracts
+npm run compile
+
+# 3. Deploy contracts
+npm run deploy
+
+# 4. Create USDC market
+npm run create-market-usd
+
+# 5. Create MXNB market  
+npm run create-market-mxn
+
+# 6. Supply to vaults
+npm run supply-usd
+npm run supply-mxn
+
+# 7. Test borrowing
+npm run borrow-usd
+
+# 8. Launch frontend
+npm run serve
+# Open http://localhost:8000
+```
+
+### Script Reference
+
+| Command | Purpose |
+|---------|---------|
+| `npm run compile` | Compile Solidity contracts |
+| `npm run deploy` | Deploy mock tokens and wrapper contracts |
+| `npm run create-market-usd` | Create USDC-denominated market |
+| `npm run create-market-mxn` | Create MXNB-denominated market |
+| `npm run supply-usd` | Supply USDC to Morpho Vault |
+| `npm run supply-mxn` | Supply MXNB to Morpho Vault |
+| `npm run borrow-usd` | Execute borrow/repay flow on USDC market |
+| `npm run demo` | Run complete end-to-end demo |
+| `npm run serve` | Launch frontend UI on localhost:8000 |
+| `npm run test` | Run Hardhat tests |
+
+---
+
+## Troubleshooting
 
 ### "Network not supported"
 
@@ -337,35 +483,58 @@ Ensure MetaMask is set to **Base Sepolia (Chain ID: 84532)**.
 
 Get Base Sepolia ETH and USDC from faucets (see Prerequisites).
 
-### "Insufficient collateral"
+### "Market creation failed"
 
 Ensure:
-1. WaUSDC successfully deposited to Morpho
+1. You have recent deploy addresses from `npm run deploy`
+2. USDC and WETH are correctly configured
+3. RPC endpoint is responding
+
+### "Borrow amount exceeds capacity"
+
+Ensure:
+1. Collateral successfully supplied to Morpho Blue
 2. Borrow amount ≤ 77% of collateral value
-3. Health factor > 1.0
+3. Health factor would remain > 1.0
 
-### "Market not found"
+### "Market not found in frontend"
 
 Ensure:
-1. `MARKET_ID` is correctly set from `createMarket.ts` output
+1. Market IDs are correctly set in `frontend/app.js`
 2. Market was created on correct network (Base Sepolia)
+3. Market details JSON file exists
 
 ---
 
 ## Canonical References
 
-### Aave V3 (Base Sepolia)
-- Pool: https://app.aave.com/reserve-overview/?marketName=proto_base_sepolia_v3
-- USDC: https://sepolia.basescan.org/address/0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f
-- aUSDC: https://sepolia.basescan.org/address/0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc
+### Base Sepolia Tokens
+- **USDC:** `0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f` (Aave testnet USDC, 6 decimals)
+- **WETH:** `0x1ddebA64A8B13060e13d15504500Dd962eECD35B` (Base Sepolia WETH, 18 decimals)
 
-### Morpho Blue (Base Sepolia)
-- Core: https://sepolia.basescan.org/address/0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb
-- Docs: https://docs.morpho.org/curate/tutorials-market-v1/creating-market/
+### Morpho Core (Base Sepolia)
+- **Morpho Blue:** `0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb`
+- **Vault Factory:** `0x2c3FE6D71F8d54B063411Abb446B49f13725F784`
+- **Default IRM:** `0x46415998764C29aB2a25CbeA6254146D50D22687`
+- [Morpho Docs](https://docs.morpho.org/curate/tutorials-market-v1/creating-market/)
 
-### Base Sepolia
-- Block Explorer: https://sepolia.basescan.org
-- RPC: https://sepolia.base.org
+### Key Deployment Files
+- `deploy-addresses-mor.json` — Deployed contract addresses
+- `market-details-usdc.json` — USDC market parameters and IDs
+- `market-details-mxnb.json` — MXNB market parameters and IDs
+- `market-details.json` — Legacy market details (deprecated)
+
+### Network Information
+- **Network:** Base Sepolia
+- **Chain ID:** 84532
+- **RPC:** https://sepolia.base.org
+- **Block Explorer:** https://sepolia.basescan.org
+
+### Reference Links
+- [Morpho Blue Documentation](https://docs.morpho.org/)
+- [ERC-4626 Standard](https://eips.ethereum.org/EIPS/eip-4626)
+- [Morpho Vault Market Curation](https://docs.morpho.org/curate/)
+- [Base Sepolia Faucets](https://docs.base.org/guides/ecosystem-faucets/)
 
 ---
 
@@ -373,14 +542,16 @@ Ensure:
 
 ⚠️ **This is a PoC. Not audited. Not production-ready.**
 
-- **FixedPriceOracle:** Fixed price only suitable for testing
-- **WaUSDC:** No access controls or pause mechanisms
-- **MockCCOP:** Owner-only minting. For testing only.
-- **No slippage protection**
-- **No revert guards**
+- **MockMXNB / MockWETH:** Test tokens only with owner-only minting. For testing only.
+- **WmUSDC:** No access controls or pause mechanisms. Test wrapper only.
+- **Oracles (EthUsdcOracle, WmusdcMxnbOracle):** Fixed/simple pricing suitable for testing only. Production would require reliable price feeds.
+- **No slippage protection** on swap-like operations
+- **No circuit breakers** or emergency pause mechanisms
+- **Assumes 77% LLTV** — Not validated against various market conditions
+- **Market parameters hardcoded** — Not adaptable to different risk profiles
 
 ---
 
 **Status:** ✅ Ready for Base Sepolia testnet
 
-**Last Updated:** January 2026
+**Last Updated:** February 2026

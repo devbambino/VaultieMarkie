@@ -1,623 +1,667 @@
 /**
- * Aave + Morpho Blue PoC Frontend
+ * Morpho Blue V1 PoC Frontend
+ * Yield Generation & Collateralized Lending on Base Sepolia
  * 
- * This is the main application logic for interacting with the Web3 PoC.
- * All interactions use ethers.js v6 directly with ABIs.
- * 
- * TODO: Update CONTRACT_ADDRESSES with your deployed addresses
+ * Flow:
+ * 1. Supply USDC → get mUSDC (Morpho USDC Vault)
+ * 2. Wrap mUSDC → get WmUSDC
+ * 3. Supply WmUSDC as collateral → Morpho Blue
+ * 4. Borrow MXNB → receive MXNB_test
+ * 5. Repay MXNB
+ * 6. Withdraw WmUSDC collateral
+ * 7. Unwrap WmUSDC → get mUSDC
+ * 8. Withdraw USDC from Morpho Vault
  */
 
 // ============================================================================
-// CONFIGURATION - UPDATE WITH YOUR DEPLOYED ADDRESSES
+// CONFIGURATION
 // ============================================================================
 
-const CONFIG = {
-    mockCCOP: "0x", // From deploy.ts
-    waUSDC: "0x",   // From deploy.ts
-    fixedPriceOracle: "0x", // From deploy.ts
-    
-    // Base Sepolia (do not change)
-    usdc: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
-    aUSDC: "0x10f1a9d11cdf50041f3f8cb7191cbe2f31750acc",
-    aavePool: "0x7B4eb56E7CD4eFc5c4D044DBC3917eB21f3d5dAE",
-    morphoBlue: "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
-    
-    chainId: 84532,
-    chainName: "Base Sepolia",
+const BASE_SEPOLIA_CONFIG = {
+  chainId: 84532,
+  rpcUrl: "https://sepolia.base.org",
+  blockExplorer: "https://sepolia.basescan.org",
 };
 
-const MARKET_ID = "0x"; // Update from market-details.json
+const CONTRACT_ADDRESSES = {
+  // Base Sepolia Token Addresses
+  usdc: "0xba50cd2a20f6da35d788639e581bca8d0b5d4d5f",
+  mockMXNB: "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E",
+  
+  // Wrapper & Vault Addresses
+  wmUSDC: "0xCa4625EA7F3363d7E9e3090f9a293b64229FE55B",
+  morphoUSDCVault: "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9",
+  morphoMXNBVault: "0xd6a83595b11CCC94bCcde4c9654bcaa6D423896e",
+  
+  // Morpho Addresses
+  morphoBlue: "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+  
+  // Oracle Addresses
+  wmusdcMxnbOracle: "0x9f4b138BF3513866153Af9f0A2794096DFebFaD4",
+  ethUsdcOracle: "0x97EBCdb0F784CDc9F91490bEBC9C8756491814a3",
+};
+
+const MARKET_IDS = {
+  usdc: "0x6af42641dd1ddc4fd0c3648e45497a29b78eb50d21fd0f6eac7b8eae2192dd47",
+  mxnb: "0xf912f62db71d01c572b28b6953c525851f9e0660df4e422cec986e620da726df",
+};
+
 
 // ============================================================================
-// CONTRACT ABIs
+// ABI DEFINITIONS
 // ============================================================================
 
 const ERC20_ABI = [
-    "function approve(address spender, uint256 amount) external returns (bool)",
-    "function allowance(address owner, address spender) external view returns (uint256)",
-    "function transfer(address to, uint256 amount) external returns (bool)",
-    "function transferFrom(address from, address to, uint256 amount) external returns (bool)",
-    "function balanceOf(address account) external view returns (uint256)",
-    "function totalSupply() external view returns (uint256)",
-    "function decimals() external view returns (uint8)",
-    "function symbol() external view returns (string)",
-    "function name() external view returns (string)",
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function transfer(address to, uint256 amount) external returns (bool)",
+  "function transferFrom(address from, address to, uint256 amount) external returns (bool)",
+  "function balanceOf(address account) external view returns (uint256)",
+  "function decimals() external view returns (uint8)",
+  "function symbol() external view returns (string)",
+  "function name() external view returns (string)",
 ];
 
-const ERC4626_ABI = [
-    ...ERC20_ABI,
-    "function deposit(uint256 assets, address receiver) external returns (uint256)",
-    "function withdraw(uint256 assets, address receiver, address owner) external returns (uint256)",
-    "function mint(uint256 shares, address receiver) external returns (uint256)",
-    "function redeem(uint256 shares, address receiver, address owner) external returns (uint256)",
-    "function totalAssets() external view returns (uint256)",
-    "function convertToShares(uint256 assets) external view returns (uint256)",
-    "function convertToAssets(uint256 shares) external view returns (uint256)",
-    "function asset() external view returns (address)",
+const VAULT_ABI = [
+  "function deposit(uint256 assets, address receiver) external returns (uint256)",
+  "function withdraw(uint256 assets, address receiver, address owner) external returns (uint256)",
+  "function redeem(uint256 shares, address receiver, address owner) external returns (uint256)",
+  "function balanceOf(address account) external view returns (uint256)",
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function asset() external view returns (address)",
 ];
 
-const AAVE_POOL_ABI = [
-    "function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external",
-    "function withdraw(address asset, uint256 amount, address to) external returns (uint256)",
+const WMEMORY_ABI = [
+  "function deposit(uint256 assets, address receiver) external returns (uint256)",
+  "function redeem(uint256 shares, address receiver, address owner) external returns (uint256)",
+  "function balanceOf(address account) external view returns (uint256)",
+  "function approve(address spender, uint256 amount) external returns (bool)",
 ];
 
-const MORPHO_BLUE_ABI = [
-    "function supplyCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, bytes data) external",
-    "function withdrawCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address receiver) external",
-    "function borrow(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver) external returns (uint256, uint256)",
-    "function repay(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data) external returns (uint256, uint256)",
-    "function position(bytes32 id, address user) external view returns (tuple(uint256,uint256,uint256))",
+const MORPHO_ABI = [
+  "function supplyCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, bytes data) external",
+  "function withdrawCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, address receiver) external",
+  "function borrow(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver) external returns (uint256, uint256)",
+  "function repay(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data) external returns (uint256, uint256)",
+  "function position(bytes32 id, address user) external view returns (tuple(uint256,uint256,uint256))",
 ];
 
 // ============================================================================
-// GLOBAL STATE
+// STATE MANAGEMENT
 // ============================================================================
 
-let signer = null;
+let currentUser = null;
 let provider = null;
-let userAddress = null;
+let signer = null;
+let chainId = null;
+let isConnecting = false;
+
+const contracts = {
+  usdc: null,
+  mxnb: null,
+  wmUSDC: null,
+  morphoUSDCVault: null,
+  morphoMXNBVault: null,
+  morpho: null,
+};
+
+const displayPrecision = {
+  usdc: 6,
+  mxnb: 6,
+  wmUSDC: 18,
+  mUSDC: 18,
+  mxnbBorrowed: 12,
+};
+
+
 
 // ============================================================================
-// LOGGING UTILITIES
+// UTILITY FUNCTIONS
 // ============================================================================
 
-function addLog(message, type = "info") {
-    const logContainer = document.getElementById("logContainer");
-    const logLine = document.createElement("div");
-    logLine.className = `log-line log-${type}`;
-    
-    const timestamp = new Date().toLocaleTimeString();
-    logLine.textContent = `[${timestamp}] ${message}`;
-    
-    logContainer.appendChild(logLine);
-    logContainer.scrollTop = logContainer.scrollHeight;
+function formatAmount(amount, decimals = 18) {
+  if (!amount) return "0.00";
+  const formatted = ethers.formatUnits(amount, decimals);
+  return parseFloat(formatted).toFixed(4);
 }
 
-function clearLogs() {
-    document.getElementById("logContainer").innerHTML = "";
+function parseAmount(amount, decimals = 18) {
+  try {
+    return ethers.parseUnits(amount.toString(), decimals);
+  } catch (e) {
+    console.error("Error parsing amount:", e);
+    return 0n;
+  }
+}
+
+function log(message, type = "info") {
+  const logContainer = document.getElementById("logContainer");
+  const timestamp = new Date().toLocaleTimeString();
+  const logLine = document.createElement("div");
+  logLine.className = `log-line log-${type}`;
+  logLine.textContent = `[${timestamp}] ${message}`;
+  logContainer.appendChild(logLine);
+  logContainer.scrollTop = logContainer.scrollHeight;
 }
 
 function setStatus(elementId, message, type = "info") {
-    const statusEl = document.getElementById(elementId);
-    statusEl.textContent = message;
-    statusEl.className = `status status-${type}`;
+  const statusElement = document.getElementById(elementId);
+  if (statusElement) {
+    statusElement.className = `status status-${type}`;
+    statusElement.textContent = message;
+  }
 }
 
-function updateWorkflowStep(stepNum, status) {
-    const stepEl = document.getElementById(`step-${stepNum}`);
-    if (status === "active") {
-        stepEl.className = "step active";
-    } else if (status === "completed") {
-        stepEl.className = "step completed";
-    } else {
-        stepEl.className = "step";
-    }
+function updateWorkflowStep(step, status = "active") {
+  const stepElement = document.getElementById(`step-${step}`);
+  if (stepElement) {
+    stepElement.className = `step ${status}`;
+  }
 }
+
+
 
 // ============================================================================
-// WALLET CONNECTION
+// CONNECTION & INITIALIZATION
 // ============================================================================
 
 async function connectWallet() {
-    try {
-        if (!window.ethereum) {
-            alert("MetaMask is not installed. Please install MetaMask to continue.");
-            return;
-        }
-
-        // Request account access
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        userAddress = accounts[0];
-
-        // Create provider and signer
-        provider = new ethers.BrowserProvider(window.ethereum);
-        signer = await provider.getSigner();
-
-        // Check network
-        const network = await provider.getNetwork();
-        if (network.chainId !== BigInt(CONFIG.chainId)) {
-            try {
-                await window.ethereum.request({
-                    method: "wallet_switchEthereumChain",
-                    params: [{ chainId: "0x14a34" }], // 84532 in hex
-                });
-            } catch (switchError) {
-                if (switchError.code === 4902) {
-                    // Chain not added to MetaMask
-                    await window.ethereum.request({
-                        method: "wallet_addEthereumChain",
-                        params: [{
-                            chainId: "0x14a34",
-                            chainName: "Base Sepolia",
-                            rpcUrls: ["https://sepolia.base.org"],
-                            nativeCurrency: {
-                                name: "ETH",
-                                symbol: "ETH",
-                                decimals: 18,
-                            },
-                            blockExplorerUrls: ["https://sepolia.basescan.org"],
-                        }],
-                    });
-                }
-            }
-        }
-
-        // Update UI
-        document.getElementById("connectBtn").textContent = "✓ Connected";
-        document.getElementById("connectBtn").disabled = true;
-        document.getElementById("network").textContent = CONFIG.chainName;
-        document.getElementById("account").textContent = truncateAddress(userAddress);
-        document.getElementById("status").textContent = "Connected";
-
-        // Enable buttons
-        enableAllButtons();
-
-        // Load balances
-        await refreshAllBalances();
-
-        addLog(`✓ Wallet connected: ${userAddress}`, "success");
-        setStatus("aaveStatus", "Connected to wallet", "success");
-
-    } catch (error) {
-        addLog(`❌ Connection failed: ${error.message}`, "error");
-        setStatus("aaveStatus", `Error: ${error.message}`, "error");
+  if (isConnecting) return;
+  isConnecting = true;
+  
+  try {
+    // Check if MetaMask is available
+    if (!window.ethereum) {
+      alert("MetaMask is not installed!");
+      return;
     }
+
+    // Request accounts from MetaMask
+    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    if (!accounts || accounts.length === 0) {
+      log("❌ No accounts selected", "error");
+      return;
+    }
+
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    currentUser = await signer.getAddress();
+    chainId = (await provider.getNetwork()).chainId;
+
+    // Verify network
+    if (chainId !== BigInt(BASE_SEPOLIA_CONFIG.chainId)) {
+      setStatus("aaveStatus", `❌ Wrong network. Please switch to Base Sepolia`, "error");
+      setStatus("wausdcStatus", `❌ Wrong network. Please switch to Base Sepolia`, "error");
+      setStatus("morphoStatus", `❌ Wrong network. Please switch to Base Sepolia`, "error");
+      setStatus("ccopStatus", `❌ Wrong network. Please switch to Base Sepolia`, "error");
+      return;
+    }
+
+    // Initialize contracts
+    initializeContracts();
+
+    // Update UI
+    document.getElementById("network").textContent = "Base Sepolia ✓";
+    document.getElementById("account").textContent = `${currentUser.slice(0, 6)}...${currentUser.slice(-4)}`;
+    document.getElementById("status").textContent = "Connected ✓";
+    document.getElementById("connectBtn").disabled = true;
+    document.getElementById("connectBtn").textContent = "✓ Connected";
+
+    // Enable all interaction buttons
+    enableInteractions(true);
+
+    log("✓ Wallet connected successfully", "success");
+    log(`Account: ${currentUser}`, "info");
+
+    // Load initial balances
+    await updateBalances();
+  } catch (error) {
+    console.error("Connection error:", error);
+    log(`❌ Connection failed: ${error.message}`, "error");
+  } finally {
+    isConnecting = false;
+  }
 }
 
-function truncateAddress(address) {
-    return `${address.substring(0, 6)}...${address.substring(38)}`;
+function initializeContracts() {
+  contracts.usdc = new ethers.Contract(CONTRACT_ADDRESSES.usdc, ERC20_ABI, signer);
+  contracts.mxnb = new ethers.Contract(CONTRACT_ADDRESSES.mockMXNB, ERC20_ABI, signer);
+  contracts.wmUSDC = new ethers.Contract(CONTRACT_ADDRESSES.wmUSDC, WMEMORY_ABI, signer);
+  contracts.morphoUSDCVault = new ethers.Contract(CONTRACT_ADDRESSES.morphoUSDCVault, VAULT_ABI, signer);
+  contracts.morphoMXNBVault = new ethers.Contract(CONTRACT_ADDRESSES.morphoMXNBVault, VAULT_ABI, signer);
+  contracts.morpho = new ethers.Contract(CONTRACT_ADDRESSES.morphoBlue, MORPHO_ABI, signer);
+
+  log("✓ Contracts initialized", "info");
 }
+
+function enableInteractions(enabled) {
+  document.getElementById("supplyBtn").disabled = !enabled;
+  document.getElementById("withdrawAaveBtn").disabled = !enabled;
+  document.getElementById("wrapBtn").disabled = !enabled;
+  document.getElementById("unwrapBtn").disabled = !enabled;
+  document.getElementById("collateralBtn").disabled = !enabled;
+  document.getElementById("withdrawCollateralBtn").disabled = !enabled;
+  document.getElementById("borrowBtn").disabled = !enabled;
+  document.getElementById("repayBtn").disabled = !enabled;
+  
+  document.getElementById("supplyAmount").disabled = !enabled;
+  document.getElementById("borrowAmount").disabled = !enabled;
+}
+
+
 
 // ============================================================================
 // BALANCE UPDATES
 // ============================================================================
 
-async function refreshAllBalances() {
-    if (!signer || !userAddress) return;
+async function updateBalances() {
+  if (!currentUser || !contracts.usdc) return;
 
-    try {
-        // USDC Balance
-        const usdc = new ethers.Contract(CONFIG.usdc, ERC20_ABI, provider);
-        const usdcBalance = await usdc.balanceOf(userAddress);
-        document.getElementById("usdcBalance").textContent = 
-            ethers.formatUnits(usdcBalance, 6).substring(0, 10);
+  try {
+    // Get Morpho USDC Vault balance
+    const musdcBalance = await contracts.morphoUSDCVault.balanceOf(currentUser);
+    document.getElementById("ausdcBalance").textContent = formatAmount(musdcBalance, displayPrecision.mUSDC);
 
-        // aUSDC Balance
-        const aUsdc = new ethers.Contract(CONFIG.aUSDC, ERC20_ABI, provider);
-        const ausdcBalance = await aUsdc.balanceOf(userAddress);
-        document.getElementById("ausdcBalance").textContent = 
-            ethers.formatUnits(ausdcBalance, 6).substring(0, 10);
+    // Get USDC balance
+    const usdcBalance = await contracts.usdc.balanceOf(currentUser);
+    document.getElementById("usdcBalance").textContent = formatAmount(usdcBalance, displayPrecision.usdc);
 
-        // WaUSDC Balance
-        const waUSDC = new ethers.Contract(CONFIG.waUSDC, ERC4626_ABI, provider);
-        const wausdcBalance = await waUSDC.balanceOf(userAddress);
-        document.getElementById("wausdcBalance").textContent = 
-            ethers.formatUnits(wausdcBalance, 6).substring(0, 10);
+    // Get WmUSDC balance
+    const wmUsdcBalance = await contracts.wmUSDC.balanceOf(currentUser);
+    document.getElementById("wausdcBalance").textContent = formatAmount(wmUsdcBalance, displayPrecision.wmUSDC);
 
-        // WaUSDC Price per Share
-        const totalAssets = await waUSDC.totalAssets();
-        const totalSupply = await waUSDC.totalSupply();
-        const pricePerShare = totalSupply > 0n ? 
-            ethers.formatUnits((totalAssets * 10n**6n) / totalSupply, 6) : "1.00";
-        document.getElementById("sharePrice").textContent = 
-            pricePerShare.substring(0, 10);
+    // Get MXNB balance
+    const mxnbBalance = await contracts.mxnb.balanceOf(currentUser);
+    document.getElementById("ccopBalance").textContent = formatAmount(mxnbBalance, displayPrecision.mxnb);
 
-        // cCOP Balance
-        const ccop = new ethers.Contract(CONFIG.mockCCOP, ERC20_ABI, provider);
-        const ccopBalance = await ccop.balanceOf(userAddress);
-        document.getElementById("ccopBalance").textContent = 
-            ethers.formatUnits(ccopBalance, 6).substring(0, 10);
-
-        // Morpho Position
-        if (MARKET_ID !== "0x") {
-            const morpho = new ethers.Contract(CONFIG.morphoBlue, MORPHO_BLUE_ABI, provider);
-            try {
-                const position = await morpho.position(MARKET_ID, userAddress);
-                document.getElementById("morphoCollateral").textContent = 
-                    ethers.formatUnits(position[2], 6).substring(0, 10);
-                // Note: position[1] is borrow shares, would need to query market data for assets
-                document.getElementById("morphoBorrow").textContent = "0.00"; // Placeholder
-            } catch (e) {
-                // Market may not exist yet
-            }
-        }
-
-    } catch (error) {
-        addLog(`Error refreshing balances: ${error.message}`, "warning");
+    // Get Morpho position (collateral and borrow)
+    const position = await contracts.morpho.position(MARKET_IDS.mxnb, currentUser);
+    const collateral = position[2]; // collateral is 3rd element
+    const borrowShares = position[1]; // borrowShares is 2nd element
+    
+    document.getElementById("morphoCollateral").textContent = formatAmount(collateral, displayPrecision.wmUSDC);
+    
+    // Estimate borrow amount from borrow shares
+    if (borrowShares > 0n) {
+      // For now, just show the shares as a rough estimate
+      document.getElementById("morphoBorrow").textContent = formatAmount(borrowShares, displayPrecision.mxnbBorrowed);
+    } else {
+      document.getElementById("morphoBorrow").textContent = "0.00";
     }
+
+  } catch (error) {
+    console.error("Error updating balances:", error);
+  }
+}
+
+
+
+// ============================================================================
+// TRANSACTION HANDLERS
+// ============================================================================
+
+async function executeTransaction(fn, description) {
+  try {
+    log(`⏳ ${description}...`, "info");
+    const tx = await fn();
+    log(`📝 Transaction hash: ${tx.hash}`, "info");
+    
+    const receipt = await tx.wait();
+    log(`✓ ${description} confirmed!`, "success");
+    
+    // Update balances after transaction
+    setTimeout(updateBalances, 1000);
+    
+    return receipt;
+  } catch (error) {
+    const errorMsg = error.reason || error.message || "Unknown error";
+    log(`❌ ${description} failed: ${errorMsg}`, "error");
+    throw error;
+  }
 }
 
 // ============================================================================
-// AAVE FUNCTIONS
+// SUPPLY USDC TO MORPHO VAULT
 // ============================================================================
 
 async function approveAndSupplyUsdc() {
-    if (!signer || !userAddress) {
-        alert("Please connect wallet first");
-        return;
+  if (!currentUser) {
+    alert("Please connect wallet first");
+    return;
+  }
+
+  const amount = document.getElementById("supplyAmount").value;
+  const parsedAmount = parseAmount(amount, displayPrecision.usdc);
+
+  if (parsedAmount <= 0) {
+    alert("Please enter a valid amount");
+    return;
+  }
+
+  try {
+    updateWorkflowStep(1, "active");
+    
+    // Check USDC balance
+    const balance = await contracts.usdc.balanceOf(currentUser);
+    if (balance < parsedAmount) {
+      alert(`Insufficient USDC balance. You have ${formatAmount(balance, displayPrecision.usdc)}`);
+      return;
     }
 
-    try {
-        updateWorkflowStep(1, "active");
-        const amount = ethers.parseUnits(document.getElementById("supplyAmount").value || "1000", 6);
-        
-        addLog(`Starting: Supply ${ethers.formatUnits(amount, 6)} USDC to Aave`, "info");
-        setStatus("aaveStatus", "⏳ Approving USDC...", "warning");
+    // Approve USDC
+    await executeTransaction(
+      () => contracts.usdc.approve(CONTRACT_ADDRESSES.morphoUSDCVault, parsedAmount),
+      "Approving USDC"
+    );
 
-        const usdc = new ethers.Contract(CONFIG.usdc, ERC20_ABI, signer);
-        const approveTx = await usdc.approve(CONFIG.aavePool, amount);
-        await approveTx.wait();
-        addLog(`✓ Approval confirmed: ${approveTx.hash}`, "success");
+    // Supply to Morpho USDC Vault
+    await executeTransaction(
+      () => contracts.morphoUSDCVault.deposit(parsedAmount, currentUser),
+      "Supplying USDC to Morpho Vault"
+    );
 
-        setStatus("aaveStatus", "⏳ Supplying to Aave...", "warning");
-        const aavePool = new ethers.Contract(CONFIG.aavePool, AAVE_POOL_ABI, signer);
-        const supplyTx = await aavePool.supply(CONFIG.usdc, amount, userAddress, 0);
-        await supplyTx.wait();
-        addLog(`✓ Supply confirmed: ${supplyTx.hash}`, "success");
-
-        setStatus("aaveStatus", "✓ USDC supplied to Aave", "success");
-        updateWorkflowStep(1, "completed");
-        
-        await refreshAllBalances();
-    } catch (error) {
-        addLog(`❌ Supply failed: ${error.message}`, "error");
-        setStatus("aaveStatus", `Error: ${error.message}`, "error");
-    }
+    setStatus("aaveStatus", "✓ USDC supplied successfully", "success");
+    updateWorkflowStep(1, "completed");
+    updateWorkflowStep(2, "active");
+  } catch (error) {
+    setStatus("aaveStatus", "❌ Supply failed", "error");
+  }
 }
 
 async function withdrawFromAave() {
-    if (!signer || !userAddress) {
-        alert("Please connect wallet first");
-        return;
+  if (!currentUser) {
+    alert("Please connect wallet first");
+    return;
+  }
+
+  try {
+    const balance = await contracts.morphoUSDCVault.balanceOf(currentUser);
+    if (balance <= 0) {
+      alert("No mUSDC balance to withdraw");
+      return;
     }
 
-    try {
-        updateWorkflowStep(8, "active");
-        
-        const aUsdc = new ethers.Contract(CONFIG.aUSDC, ERC20_ABI, provider);
-        const balance = await aUsdc.balanceOf(userAddress);
-        
-        addLog(`Starting: Withdraw ${ethers.formatUnits(balance, 6)} aUSDC from Aave`, "info");
-        setStatus("aaveStatus", "⏳ Withdrawing...", "warning");
+    await executeTransaction(
+      () => contracts.morphoUSDCVault.redeem(balance, currentUser, currentUser),
+      "Withdrawing from Morpho USDC Vault"
+    );
 
-        const aavePool = new ethers.Contract(CONFIG.aavePool, AAVE_POOL_ABI, signer);
-        const withdrawTx = await aavePool.withdraw(CONFIG.usdc, balance, userAddress);
-        await withdrawTx.wait();
-        addLog(`✓ Withdrawal confirmed: ${withdrawTx.hash}`, "success");
-
-        setStatus("aaveStatus", "✓ Withdrawn from Aave", "success");
-        updateWorkflowStep(8, "completed");
-        
-        await refreshAllBalances();
-    } catch (error) {
-        addLog(`❌ Withdrawal failed: ${error.message}`, "error");
-        setStatus("aaveStatus", `Error: ${error.message}`, "error");
-    }
+    setStatus("aaveStatus", "✓ Withdrawal successful", "success");
+    updateWorkflowStep(8, "completed");
+  } catch (error) {
+    setStatus("aaveStatus", "❌ Withdrawal failed", "error");
+  }
 }
 
 // ============================================================================
-// WaUSDC WRAPPER FUNCTIONS
+// WRAP/UNWRAP mUSDC <-> WmUSDC
 // ============================================================================
 
 async function wrapAusdcToWausdc() {
-    if (!signer || !userAddress) {
-        alert("Please connect wallet first");
-        return;
+  if (!currentUser) {
+    alert("Please connect wallet first");
+    return;
+  }
+
+  try {
+    const balance = await contracts.morphoUSDCVault.balanceOf(currentUser);
+    if (balance <= 0) {
+      alert("No mUSDC balance to wrap");
+      return;
     }
 
-    try {
-        updateWorkflowStep(2, "active");
-        
-        const aUsdc = new ethers.Contract(CONFIG.aUSDC, ERC20_ABI, provider);
-        const balance = await aUsdc.balanceOf(userAddress);
-        
-        if (balance === 0n) {
-            alert("No aUSDC balance to wrap");
-            return;
-        }
+    // Approve mUSDC for wmUSDC
+    await executeTransaction(
+      () => contracts.morphoUSDCVault.approve(CONTRACT_ADDRESSES.wmUSDC, balance),
+      "Approving mUSDC for wrapping"
+    );
 
-        addLog(`Starting: Wrap ${ethers.formatUnits(balance, 6)} aUSDC to WaUSDC`, "info");
-        setStatus("wausdcStatus", "⏳ Approving aUSDC...", "warning");
+    // Wrap mUSDC -> WmUSDC
+    await executeTransaction(
+      () => contracts.wmUSDC.deposit(balance, currentUser),
+      "Wrapping mUSDC to WmUSDC"
+    );
 
-        const aUsdcSigner = new ethers.Contract(CONFIG.aUSDC, ERC20_ABI, signer);
-        const approveTx = await aUsdcSigner.approve(CONFIG.waUSDC, balance);
-        await approveTx.wait();
-        addLog(`✓ Approval confirmed: ${approveTx.hash}`, "success");
-
-        setStatus("wausdcStatus", "⏳ Depositing to WaUSDC...", "warning");
-        const waUSDC = new ethers.Contract(CONFIG.waUSDC, ERC4626_ABI, signer);
-        const depositTx = await waUSDC.deposit(balance, userAddress);
-        await depositTx.wait();
-        addLog(`✓ Wrap confirmed: ${depositTx.hash}`, "success");
-
-        setStatus("wausdcStatus", "✓ aUSDC wrapped to WaUSDC", "success");
-        updateWorkflowStep(2, "completed");
-        
-        await refreshAllBalances();
-    } catch (error) {
-        addLog(`❌ Wrap failed: ${error.message}`, "error");
-        setStatus("wausdcStatus", `Error: ${error.message}`, "error");
-    }
+    setStatus("wausdcStatus", "✓ Wrapped successfully", "success");
+    updateWorkflowStep(2, "completed");
+    updateWorkflowStep(3, "active");
+  } catch (error) {
+    setStatus("wausdcStatus", "❌ Wrapping failed", "error");
+  }
 }
 
 async function unwrapWausdcToAusdc() {
-    if (!signer || !userAddress) {
-        alert("Please connect wallet first");
-        return;
+  if (!currentUser) {
+    alert("Please connect wallet first");
+    return;
+  }
+
+  try {
+    const balance = await contracts.wmUSDC.balanceOf(currentUser);
+    if (balance <= 0) {
+      alert("No WmUSDC balance to unwrap");
+      return;
     }
 
-    try {
-        updateWorkflowStep(7, "active");
-        
-        const waUSDC = new ethers.Contract(CONFIG.waUSDC, ERC4626_ABI, provider);
-        const balance = await waUSDC.balanceOf(userAddress);
-        
-        if (balance === 0n) {
-            alert("No WaUSDC balance to unwrap");
-            return;
-        }
+    await executeTransaction(
+      () => contracts.wmUSDC.redeem(balance, currentUser, currentUser),
+      "Unwrapping WmUSDC to mUSDC"
+    );
 
-        addLog(`Starting: Unwrap ${ethers.formatUnits(balance, 6)} WaUSDC to aUSDC`, "info");
-        setStatus("wausdcStatus", "⏳ Redeeming from WaUSDC...", "warning");
-
-        const waUsdcSigner = new ethers.Contract(CONFIG.waUSDC, ERC4626_ABI, signer);
-        const redeemTx = await waUsdcSigner.redeem(balance, userAddress, userAddress);
-        await redeemTx.wait();
-        addLog(`✓ Unwrap confirmed: ${redeemTx.hash}`, "success");
-
-        setStatus("wausdcStatus", "✓ WaUSDC unwrapped to aUSDC", "success");
-        updateWorkflowStep(7, "completed");
-        
-        await refreshAllBalances();
-    } catch (error) {
-        addLog(`❌ Unwrap failed: ${error.message}`, "error");
-        setStatus("wausdcStatus", `Error: ${error.message}`, "error");
-    }
+    setStatus("wausdcStatus", "✓ Unwrapped successfully", "success");
+    updateWorkflowStep(7, "completed");
+  } catch (error) {
+    setStatus("wausdcStatus", "❌ Unwrapping failed", "error");
+  }
 }
 
+
+
 // ============================================================================
-// MORPHO BLUE FUNCTIONS
+// MORPHO BLUE COLLATERAL & BORROWING
 // ============================================================================
 
-function getMarketParams() {
-    return [
-        CONFIG.mockCCOP,        // loanToken
-        CONFIG.waUSDC,          // collateralToken
-        CONFIG.fixedPriceOracle, // oracle
-        "0x46cAcB97d52D1C1c0c3189d879fD3dAF265b2eee", // irm
-        ethers.parseEther("0.77"), // lltv
-    ];
-}
+const MXNB_MARKET_PARAMS = [
+  CONTRACT_ADDRESSES.mockMXNB,        // loanToken
+  CONTRACT_ADDRESSES.wmUSDC,          // collateralToken
+  CONTRACT_ADDRESSES.wmusdcMxnbOracle, // oracle
+  "0x46415998764C29aB2a25CbeA6254146D50D22687", // irm
+  ethers.parseEther("0.77"),          // lltv (77%)
+];
 
 async function supplyCollateralToMorpho() {
-    if (!signer || !userAddress) {
-        alert("Please connect wallet first");
-        return;
+  if (!currentUser) {
+    alert("Please connect wallet first");
+    return;
+  }
+
+  try {
+    const balance = await contracts.wmUSDC.balanceOf(currentUser);
+    if (balance <= 0) {
+      alert("No WmUSDC balance to supply as collateral");
+      return;
     }
 
-    try {
-        updateWorkflowStep(3, "active");
-        
-        const waUSDC = new ethers.Contract(CONFIG.waUSDC, ERC20_ABI, provider);
-        const balance = await waUSDC.balanceOf(userAddress);
-        
-        if (balance === 0n) {
-            alert("No WaUSDC balance");
-            return;
-        }
+    // Approve WmUSDC for Morpho
+    await executeTransaction(
+      () => contracts.wmUSDC.approve(CONTRACT_ADDRESSES.morphoBlue, balance),
+      "Approving WmUSDC for Morpho"
+    );
 
-        addLog(`Starting: Supply ${ethers.formatUnits(balance, 6)} WaUSDC as collateral`, "info");
-        setStatus("morphoStatus", "⏳ Approving WaUSDC...", "warning");
+    // Supply collateral
+    await executeTransaction(
+      () => contracts.morpho.supplyCollateral(MXNB_MARKET_PARAMS, balance, currentUser, "0x"),
+      "Supplying WmUSDC as collateral"
+    );
 
-        const waUsdcSigner = new ethers.Contract(CONFIG.waUSDC, ERC20_ABI, signer);
-        const approveTx = await waUsdcSigner.approve(CONFIG.morphoBlue, balance);
-        await approveTx.wait();
-        addLog(`✓ Approval confirmed: ${approveTx.hash}`, "success");
-
-        setStatus("morphoStatus", "⏳ Supplying collateral...", "warning");
-        const morpho = new ethers.Contract(CONFIG.morphoBlue, MORPHO_BLUE_ABI, signer);
-        const supplyTx = await morpho.supplyCollateral(getMarketParams(), balance, userAddress, "0x");
-        await supplyTx.wait();
-        addLog(`✓ Collateral supply confirmed: ${supplyTx.hash}`, "success");
-
-        setStatus("morphoStatus", "✓ Collateral supplied to Morpho", "success");
-        updateWorkflowStep(3, "completed");
-        
-        await refreshAllBalances();
-    } catch (error) {
-        addLog(`❌ Collateral supply failed: ${error.message}`, "error");
-        setStatus("morphoStatus", `Error: ${error.message}`, "error");
-    }
-}
-
-async function borrowFromMorpho() {
-    if (!signer || !userAddress) {
-        alert("Please connect wallet first");
-        return;
-    }
-
-    try {
-        updateWorkflowStep(4, "active");
-        const amount = ethers.parseUnits(document.getElementById("borrowAmount").value || "500", 6);
-        
-        addLog(`Starting: Borrow ${ethers.formatUnits(amount, 6)} cCOP`, "info");
-        setStatus("morphoStatus", "⏳ Borrowing...", "warning");
-
-        const morpho = new ethers.Contract(CONFIG.morphoBlue, MORPHO_BLUE_ABI, signer);
-        const borrowTx = await morpho.borrow(
-            getMarketParams(),
-            amount,
-            0,
-            userAddress,
-            userAddress
-        );
-        await borrowTx.wait();
-        addLog(`✓ Borrow confirmed: ${borrowTx.hash}`, "success");
-
-        setStatus("morphoStatus", "✓ Borrowed cCOP from Morpho", "success");
-        updateWorkflowStep(4, "completed");
-        
-        await refreshAllBalances();
-    } catch (error) {
-        addLog(`❌ Borrow failed: ${error.message}`, "error");
-        setStatus("morphoStatus", `Error: ${error.message}`, "error");
-    }
-}
-
-async function repayMorphoLoan() {
-    if (!signer || !userAddress) {
-        alert("Please connect wallet first");
-        return;
-    }
-
-    try {
-        updateWorkflowStep(5, "active");
-        
-        const ccop = new ethers.Contract(CONFIG.mockCCOP, ERC20_ABI, provider);
-        const balance = await ccop.balanceOf(userAddress);
-        
-        if (balance === 0n) {
-            alert("No cCOP balance to repay");
-            return;
-        }
-
-        addLog(`Starting: Repay ${ethers.formatUnits(balance, 6)} cCOP`, "info");
-        setStatus("morphoStatus", "⏳ Approving cCOP...", "warning");
-
-        const ccopSigner = new ethers.Contract(CONFIG.mockCCOP, ERC20_ABI, signer);
-        const approveTx = await ccopSigner.approve(CONFIG.morphoBlue, balance);
-        await approveTx.wait();
-        addLog(`✓ Approval confirmed: ${approveTx.hash}`, "success");
-
-        setStatus("morphoStatus", "⏳ Repaying...", "warning");
-        const morpho = new ethers.Contract(CONFIG.morphoBlue, MORPHO_BLUE_ABI, signer);
-        const repayTx = await morpho.repay(
-            getMarketParams(),
-            balance,
-            0,
-            userAddress,
-            "0x"
-        );
-        await repayTx.wait();
-        addLog(`✓ Repayment confirmed: ${repayTx.hash}`, "success");
-
-        setStatus("morphoStatus", "✓ Loan repaid", "success");
-        updateWorkflowStep(5, "completed");
-        
-        await refreshAllBalances();
-    } catch (error) {
-        addLog(`❌ Repay failed: ${error.message}`, "error");
-        setStatus("morphoStatus", `Error: ${error.message}`, "error");
-    }
+    setStatus("morphoStatus", "✓ Collateral supplied", "success");
+    updateWorkflowStep(3, "completed");
+    updateWorkflowStep(4, "active");
+  } catch (error) {
+    setStatus("morphoStatus", "❌ Collateral supply failed", "error");
+  }
 }
 
 async function withdrawCollateralFromMorpho() {
-    if (!signer || !userAddress) {
-        alert("Please connect wallet first");
-        return;
+  if (!currentUser) {
+    alert("Please connect wallet first");
+    return;
+  }
+
+  try {
+    const position = await contracts.morpho.position(MARKET_IDS.mxnb, currentUser);
+    const collateral = position[2];
+
+    if (collateral <= 0) {
+      alert("No collateral to withdraw");
+      return;
     }
 
-    try {
-        updateWorkflowStep(6, "active");
-        
-        const morpho = new ethers.Contract(CONFIG.morphoBlue, MORPHO_BLUE_ABI, provider);
-        const position = await morpho.position(MARKET_ID, userAddress);
-        const collateral = position[2];
-        
-        if (collateral === 0n) {
-            alert("No collateral to withdraw");
-            return;
-        }
+    await executeTransaction(
+      () => contracts.morpho.withdrawCollateral(MXNB_MARKET_PARAMS, collateral, currentUser, currentUser),
+      "Withdrawing WmUSDC collateral"
+    );
 
-        addLog(`Starting: Withdraw ${ethers.formatUnits(collateral, 6)} WaUSDC collateral`, "info");
-        setStatus("morphoStatus", "⏳ Withdrawing collateral...", "warning");
+    setStatus("morphoStatus", "✓ Collateral withdrawn", "success");
+    updateWorkflowStep(6, "completed");
+  } catch (error) {
+    setStatus("morphoStatus", "❌ Collateral withdrawal failed", "error");
+  }
+}
 
-        const morphoSigner = new ethers.Contract(CONFIG.morphoBlue, MORPHO_BLUE_ABI, signer);
-        const withdrawTx = await morphoSigner.withdrawCollateral(
-            getMarketParams(),
-            collateral,
-            userAddress
-        );
-        await withdrawTx.wait();
-        addLog(`✓ Withdrawal confirmed: ${withdrawTx.hash}`, "success");
+async function borrowFromMorpho() {
+  if (!currentUser) {
+    alert("Please connect wallet first");
+    return;
+  }
 
-        setStatus("morphoStatus", "✓ Collateral withdrawn", "success");
-        updateWorkflowStep(6, "completed");
-        
-        await refreshAllBalances();
-    } catch (error) {
-        addLog(`❌ Withdrawal failed: ${error.message}`, "error");
-        setStatus("morphoStatus", `Error: ${error.message}`, "error");
+  const amount = document.getElementById("borrowAmount").value;
+  const parsedAmount = parseAmount(amount, displayPrecision.mxnb);
+
+  if (parsedAmount <= 0) {
+    alert("Please enter a valid amount");
+    return;
+  }
+
+  try {
+    // Check collateral first
+    const position = await contracts.morpho.position(MARKET_IDS.mxnb, currentUser);
+    const collateral = position[2];
+
+    if (collateral <= 0) {
+      alert("You must supply collateral first");
+      return;
     }
+
+    await executeTransaction(
+      () => contracts.morpho.borrow(MXNB_MARKET_PARAMS, parsedAmount, 0, currentUser, currentUser),
+      "Borrowing MXNB"
+    );
+
+    setStatus("morphoStatus", "✓ MXNB borrowed successfully", "success");
+    updateWorkflowStep(4, "completed");
+    updateWorkflowStep(5, "active");
+  } catch (error) {
+    setStatus("morphoStatus", "❌ Borrow failed", "error");
+  }
+}
+
+async function repayMorphoLoan() {
+  if (!currentUser) {
+    alert("Please connect wallet first");
+    return;
+  }
+
+  try {
+    // Get current position
+    const position = await contracts.morpho.position(MARKET_IDS.mxnb, currentUser);
+    const borrowShares = position[1];
+
+    if (borrowShares <= 0) {
+      alert("No outstanding debt");
+      return;
+    }
+
+    // Get MXNB balance
+    const mxnbBalance = await contracts.mxnb.balanceOf(currentUser);
+    if (mxnbBalance <= 0) {
+      alert("No MXNB balance to repay loan");
+      return;
+    }
+
+    // Approve MXNB for Morpho
+    await executeTransaction(
+      () => contracts.mxnb.approve(CONTRACT_ADDRESSES.morphoBlue, mxnbBalance),
+      "Approving MXNB for repayment"
+    );
+
+    // Repay loan - use borrowShares to close position
+    await executeTransaction(
+      () => contracts.morpho.repay(MXNB_MARKET_PARAMS, 0, borrowShares, currentUser, "0x"),
+      "Repaying MXNB loan"
+    );
+
+    setStatus("morphoStatus", "✓ Loan repaid successfully", "success");
+    updateWorkflowStep(5, "completed");
+    updateWorkflowStep(6, "active");
+  } catch (error) {
+    setStatus("morphoStatus", "❌ Repayment failed", "error");
+  }
 }
 
 // ============================================================================
-// INITIALIZATION
+// UTILITY FUNCTIONS
 // ============================================================================
 
-function enableAllButtons() {
-    document.querySelectorAll("button[disabled]").forEach(btn => {
-        if (btn.id !== "connectBtn") {
-            btn.disabled = false;
-        }
-    });
+function clearLogs() {
+  document.getElementById("logContainer").innerHTML = "";
 }
 
-function disableAllButtons() {
-    document.querySelectorAll("button").forEach(btn => {
-        if (btn.id !== "connectBtn") {
-            btn.disabled = true;
-        }
-    });
-}
+// ============================================================================
+// MANUAL TESTING & DEVELOPMENT
+// ============================================================================
 
-// Auto-connect if already connected
-window.addEventListener("load", async () => {
-    if (window.ethereum && window.ethereum.selectedAddress) {
-        await connectWallet();
-    } else {
-        disableAllButtons();
-    }
+// Auto-connect on page load (for development)
+let eventListenersSetup = false;
+
+window.addEventListener("load", () => {
+  // Setup MetaMask event listeners once
+  if (!eventListenersSetup && window.ethereum) {
+    setupEthereumListeners();
+  }
 });
 
-// Listen for account changes
-if (window.ethereum) {
-    window.ethereum.on("accountsChanged", async (accounts) => {
-        if (accounts.length === 0) {
-            userAddress = null;
-            signer = null;
-            document.getElementById("connectBtn").textContent = "🔌 Connect MetaMask";
-            document.getElementById("connectBtn").disabled = false;
-            disableAllButtons();
-            addLog("Wallet disconnected", "warning");
-        } else {
-            await connectWallet();
-        }
-    });
+function setupEthereumListeners() {
+  if (eventListenersSetup) return;
+  eventListenersSetup = true;
 
-    window.ethereum.on("chainChanged", () => {
-        window.location.reload();
-    });
+  window.ethereum.on("accountsChanged", async (accounts) => {
+    // Only handle if user disconnected (accounts array is empty)
+    if (accounts.length === 0) {
+      currentUser = null;
+      signer = null;
+      document.getElementById("connectBtn").textContent = "🔌 Connect MetaMask";
+      document.getElementById("connectBtn").disabled = false;
+      document.getElementById("network").textContent = "Not connected";
+      document.getElementById("account").textContent = "Not connected";
+      document.getElementById("status").textContent = "Disconnected";
+      enableInteractions(false);
+      log("Wallet disconnected", "warning");
+    }
+  });
+
+  window.ethereum.on("chainChanged", async (newChainIdHex) => {
+    if (isConnecting) return;
+
+    // If we are already connected, check if the chain ID actually changed
+    if (chainId) {
+      const newChainId = BigInt(newChainIdHex);
+      if (newChainId === chainId) {
+        return; // Chain ID is the same, no need to reload
+      }
+    }
+    
+    location.reload();
+  });
 }
 
-addLog("Frontend loaded. Click 'Connect MetaMask' to start.", "info");

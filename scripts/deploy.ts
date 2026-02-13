@@ -1,19 +1,3 @@
-/**
- * Deployment Script for Aave + Morpho Blue PoC
- * 
- * This script deploys the three core contracts:
- * 1. MockCCOP - Mock ERC20 token for borrowing
- * 2. WaUSDC - ERC-4626 wrapper around Aave aUSDC
- * 3. FixedPriceOracle - Simple oracle for Morpho Blue
- * 
- * Run: npm run deploy
- * npx hardhat run scripts/deploy.ts --network baseSepolia
- * 
- * After deployment, copy the addresses to:
- * 1. src/config.ts (update MOCK_CCOP, WA_USDC, FIXED_PRICE_ORACLE)
- * 2. .env file (optional, for convenience)
- */
-
 import { ethers } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
@@ -24,9 +8,12 @@ interface DeployedAddresses {
   wmUSDC: string;
   wmusdcMxnbOracle: string;
   ethUsdcOracle: string;
+  mxnbFaucet: string;
   deployer: string;
   timestamp: number;
 }
+
+let mxnbFaucetAddress = "0xcC36c043eeDB630f001E3C892F4b5f37120fd003";
 
 async function main() {
   console.log("=".repeat(70));
@@ -48,6 +35,7 @@ async function main() {
     wmUSDC: "",
     wmusdcMxnbOracle: "",
     ethUsdcOracle: "",
+    mxnbFaucet: "",
     deployer: deployer.address,
     timestamp: Date.now(),
   };
@@ -73,7 +61,7 @@ async function main() {
       console.log("");
     }
 
-    let isDeployingETHusdOracle = true;
+    let isDeployingETHusdOracle = false;
     if (isDeployingETHusdOracle) {
       console.log("[2/3] Deploying ethUsdcOracle...");
       const EthUsdcOracle = await ethers.getContractFactory("EthUsdcOracle");
@@ -106,6 +94,52 @@ async function main() {
     }
 
     // ============================================================================
+    // 2. Deploy MXNBFaucet
+    // ============================================================================
+    let isDeployingMXNBFaucet = true;
+    let mockMXNBAddress = "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E"; // Use existing MockMXNB address
+
+    if (isDeployingMXNBFaucet) {
+      console.log("[4/4] Deploying MXNBFaucet...");
+
+      if (!mxnbFaucetAddress.startsWith("0x")) {
+        const MXNBFaucet = await ethers.getContractFactory("MXNBFaucet");
+        const mxnbFaucet = await MXNBFaucet.deploy(mockMXNBAddress);
+        await mxnbFaucet.waitForDeployment();
+        mxnbFaucetAddress = await mxnbFaucet.getAddress();
+        deployedAddresses.mxnbFaucet = mxnbFaucetAddress;
+        console.log(`✓ MXNBFaucet deployed at: ${mxnbFaucetAddress}`);
+        console.log(`  - MXNB Token: ${mockMXNBAddress}`);
+        console.log(`  - Exchange Rate: 1 ETH = 33548.87 MXNB`);
+        console.log(`  - Max per Wallet: 10000 MXNB`);
+        console.log("");
+      }
+
+      // ============================================================================
+      // Fund the faucet with 1000000 MXNB
+      // ============================================================================
+      console.log("Funding MXNBFaucet with 1000000 MXNB...");
+      const MockMXNB = await ethers.getContractFactory("MockMXNB");
+      const mockMXNB = MockMXNB.attach(mockMXNBAddress);
+
+      const INITIAL_FAUCET_BALANCE = ethers.parseUnits("1000000", 6); // 1000000 MXNB with 6 decimals
+
+      try {
+        const mintTx = await mockMXNB.mint(mxnbFaucetAddress, INITIAL_FAUCET_BALANCE);
+        await mintTx.wait();
+        console.log(`✓ Minted 1000000 MXNB to faucet`);
+        console.log(`  - Faucet Balance: 1000000 MXNB`);
+        console.log("");
+      } catch (error) {
+        console.log("⚠ Note: Could not mint MXNB to faucet. Make sure:");
+        console.log("  1. You are the owner of MockMXNB");
+        console.log("  2. Or manually mint 1000000 MXNB to the faucet using:");
+        console.log(`     mockMXNB.mint("${mxnbFaucetAddress}", ethers.parseUnits("100000", 6))`);
+        console.log("");
+      }
+    }
+
+    // ============================================================================
     // 2. Deploy WmUSDC
     // ============================================================================
     let isDeployingWmUSDC = false;
@@ -132,7 +166,7 @@ async function main() {
     // ============================================================================
     // 3. Deploy WmusdcMxnbOracle
     // ============================================================================
-    let isDeployingWmusdcMxnbOracle = true;
+    let isDeployingWmusdcMxnbOracle = false;
     if (isDeployingWmusdcMxnbOracle) {
       console.log("[3/3] Deploying WmusdcMxnbOracle...");
       const FixedPriceOracle = await ethers.getContractFactory("WmusdcMxnbOracle");
@@ -154,13 +188,20 @@ async function main() {
     console.log("=".repeat(70));
     console.log("");
     console.log("Deployed Addresses:");
-    console.log(`  MockMXNB         ${deployedAddresses.mockMXNB}`);
+    console.log(`  MockMXNB          ${deployedAddresses.mockMXNB}`);
+    console.log(`  MXNBFaucet:       ${deployedAddresses.mxnbFaucet}`);
     console.log(`  WmUSDC:           ${deployedAddresses.wmUSDC}`);
     console.log(`  WmusdcMxnbOracle: ${deployedAddresses.wmusdcMxnbOracle}`);
     console.log("");
+    console.log("Faucet Details:");
+    console.log(`  Exchange Rate: 1 ETH = 33548.87 MXNB`);
+    console.log(`  Max per Wallet: 10000 MXNB`);
+    console.log(`  Initial Balance: 100000 MXNB`);
+    console.log("");
     console.log("Next Steps:");
     console.log("1. Update src/config.ts with the above addresses");
-    console.log("2. Run: npx hardhat run scripts/createMarket.ts --network baseSepolia");
+    console.log("2. Update frontend/app.js with the above addresses");
+    console.log("3. Run: npx hardhat run scripts/createMarket.ts --network baseSepolia");
     console.log("");
 
     // ============================================================================

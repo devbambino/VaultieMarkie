@@ -9,7 +9,7 @@
  * 5. Repay MXNB_test
  * 6. Withdraw WmUSDC collateral from Morpho
  * 7. Unwrap WmUSDC back into vaultUSDC
- * 8. Withdraw from Morpho → receive USDC
+ * 8. Withdraw USDC from Morpho → receive USDC
  * 
  * Prerequisites:
  * 1. npx hardhat run scripts/deploy.ts --network baseSepolia
