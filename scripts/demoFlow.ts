@@ -444,7 +444,7 @@ async function main() {
       console.log(`Withdrawing ${ethers.formatUnits(vaultUsdcFinal, 18)} USDC from Morpho Vault...`);
 
       if (vaultUsdcFinal > 0) {
-        const withdrawTx = await morphoUSDCVault.redeem(vaultUsdcFinal, signerAddress, signerAddress, { nonce: nonce++ });
+        const withdrawTx = await morphoUSDCVault.redeem(vaultUsdcFinal, signerAddress, signerAddress, { nonce: nonce });
         await withdrawTx.wait();
         console.log(`✓ Withdrawal confirmed (${withdrawTx.hash})`);
       }
