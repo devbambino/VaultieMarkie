@@ -10,12 +10,10 @@ const CONTRACT_ADDRESSES = {
   mockWETH: "0x1ddebA64A8B13060e13d15504500Dd962eECD35B", // From deploy.ts
 };
 
-let isDepositingUSDC = false;
-
+let isDepositingUSDC = true;
 // Amount to mint (100 mockWETH with 18 decimals)
 const MINT_AMOUNT = ethers.parseUnits("100", 18);
-
-// Amount to deposit to vault, 100 USDC
+// Amount to deposit to vault, 200 USDC
 const DEPOSIT_AMOUNT = ethers.parseUnits("200", 6);
 
 // Load market details from previous script

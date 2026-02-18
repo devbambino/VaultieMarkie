@@ -30,13 +30,12 @@ const BASE_SEPOLIA = {
 // UPDATE THIS from market-details.json after createMarket.ts
 const USDC_MARKET_ID = "0x6af42641dd1ddc4fd0c3648e45497a29b78eb50d21fd0f6eac7b8eae2192dd47";//"0x4fc5ba3c0ecfa8df29548fc2988c55cb5fc10eb0b805d281c407ff9966ef244c"; // Will be set after createMarket.ts
 
-// Collateral Amount to supply (0.1 WETH = 1 * 10^17 wei = 194 USD)
+let isRepayment = false;
+// Collateral Amount to supply (0.1 WETH = 1 * 10^17 wei = 198 USD)
 const SUPPLY_AMOUNT = ethers.parseUnits("0", 18);
-
 // Amount to borrow (5 USDC = 5 * 10^6 wei)
-const BORROW_AMOUNT = ethers.parseUnits("147", 6);
+const BORROW_AMOUNT = ethers.parseUnits("150", 6);
 
-let isRepayment = true;
 
 try {
   const marketDetailsPath = path.join(__dirname, "../market-details-usdc.json");
@@ -334,7 +333,7 @@ async function main() {
         console.log(`Starting execution with Nonce: ${nonce}`);
 
         console.log(`Supplying ${SUPPLY_AMOUNT} weth as collateral...`);
-        const supplyCollateralTx = await morpho.supplyCollateral(marketParams, SUPPLY_AMOUNT, signerAddress, "0x", { nonce: nonce });
+        const supplyCollateralTx = await morpho.supplyCollateral(marketParams, SUPPLY_AMOUNT, signerAddress, "0x", { nonce: nonce++ });
         await supplyCollateralTx.wait();
         console.log(`✓ Collateral supply confirmed (${supplyCollateralTx.hash})`);
         await getBalance(collateral, signerAddress, "wETH");
