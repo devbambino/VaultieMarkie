@@ -136,6 +136,31 @@ async function main() {
     // ========================================================================
     logStep(1, "Check Test USDC Balance", "\x1b[33m");
 
+    const morphoVaultABI = [
+      "function deposit(uint256 assets, address receiver) external returns (uint256)",
+      "function withdraw(uint256 assets, address receiver, address owner) external returns (uint256)",
+      "function redeem(uint256 shares, address receiver, address owner) external returns (uint256)",
+      "function balanceOf(address) external view returns (uint256)",
+      "function convertToAssets(uint256 shares) external view returns (uint256)",
+      "function convertToShares(uint256 assets) external view returns (uint256)",
+      "function approve(address spender, uint256 amount) external returns (bool)"
+    ];
+
+    const wmUSDCABI = [
+      "function deposit(uint256 assets, address receiver) external returns (uint256)",
+      "function balanceOf(address) external view returns (uint256)",
+      "function redeem(uint256 shares, address receiver, address owner) external returns (uint256)",
+      "function approve(address spender, uint256 amount) external returns (bool)"
+    ];
+
+    const morphoABI = [
+      "function supplyCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, bytes data) external",
+      "function position(bytes32 id, address user) external view returns (tuple(uint256,uint256,uint256))",
+      "function borrow(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver) external returns (uint256, uint256)",
+      "function repay(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data) external returns (uint256, uint256)",
+      "function withdrawCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, address receiver) external",
+    ];
+
     const usdcABI = [
       "function transfer(address to, uint256 amount) external returns (bool)",
       "function approve(address spender, uint256 amount) external returns (bool)",
@@ -156,27 +181,7 @@ async function main() {
     }
 
 
-    const morphoVaultABI = [
-      "function deposit(uint256 assets, address receiver) external returns (uint256)",
-      "function withdraw(uint256 assets, address receiver, address owner) external returns (uint256)",
-      "function redeem(uint256 shares, address receiver, address owner) external returns (uint256)",
-      "function balanceOf(address) external view returns (uint256)",
-      "function approve(address spender, uint256 amount) external returns (bool)"
-    ];
-
-    const wmUSDCABI = [
-      "function deposit(uint256 assets, address receiver) external returns (uint256)",
-      "function balanceOf(address) external view returns (uint256)",
-      "function approve(address spender, uint256 amount) external returns (bool)"
-    ];
-
-    const morphoABI = [
-      "function supplyCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, bytes data) external",
-      "function position(bytes32 id, address user) external view returns (tuple(uint256,uint256,uint256))",
-      "function borrow(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver) external returns (uint256, uint256)",
-      "function repay(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data) external returns (uint256, uint256)",
-      "function withdrawCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, address receiver) external",
-    ];
+    
 
     // Create market params
     const marketParams = [
@@ -418,8 +423,8 @@ async function main() {
       console.log(`Redeeming ${ethers.formatUnits(wmUsdcFinalBalance, 18)} WmUSDC for vaultUSDC...`);
 
       if (wmUsdcFinalBalance > 0) {
-        const redeemABI = ["function redeem(uint256 shares, address receiver, address owner) external returns (uint256)"];
-        const wmUsdcRedeem = new ethers.Contract(CONTRACT_ADDRESSES.wmUSDC, redeemABI, signer);
+        //const redeemABI = [""];
+        const wmUsdcRedeem = new ethers.Contract(CONTRACT_ADDRESSES.wmUSDC, wmUSDCABI, signer);
 
         const redeemTx = await wmUsdcRedeem.redeem(wmUsdcFinalBalance, signerAddress, signerAddress, { nonce: nonce++ });
         await redeemTx.wait();
