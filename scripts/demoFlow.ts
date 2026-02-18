@@ -29,7 +29,7 @@ import * as ethersLib from "ethers";
 const CONTRACT_ADDRESSES = {
   mockMXNB: "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E",
   mockWETH: "0x1ddebA64A8B13060e13d15504500Dd962eECD35B",
-  wmUSDC: "0xCa4625EA7F3363d7E9e3090f9a293b64229FE55B",
+  wmUSDC: "0xa8EBd0aFBc81E39d1b1399BC42Fb2B7c7D3707D7",//"0xCa4625EA7F3363d7E9e3090f9a293b64229FE55B",
   wmusdcMxnbOracle: "0x9f4b138BF3513866153Af9f0A2794096DFebFaD4",
   ethUsdcOracle: "0x97EBCdb0F784CDc9F91490bEBC9C8756491814a3",
   morphoUSDCVault: "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9", // Morpho USDC Vault - UPDATE AFTER CREATION
@@ -181,7 +181,7 @@ async function main() {
     }
 
 
-    
+
 
     // Create market params
     const marketParams = [
@@ -252,38 +252,41 @@ async function main() {
         await approveTx.wait();
         console.log(`✓ Approval confirmed (${approveTx.hash})`);
 
+        // 50000000000000000000 shares = 200000295 assets
+
         console.log(`Wrapping ${ethers.formatUnits(vaultUsdcBalanceFinal, 18)} mUSDC into wmUSDC...`);
         const wrapTx = await wmUSDC.deposit(vaultUsdcBalanceFinal, signerAddress, { nonce: nonce++ });
         await wrapTx.wait();
         console.log(`✓ Wrap confirmed (${wrapTx.hash})`);
+        const wmUsdcBalance = await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
 
       }
 
-      const wmUsdcBalance = await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
-      if (wmUsdcBalance > 0) {
-        // ========================================================================
-        // STEP 5: Approve WmUSDC to Morpho Blue
-        // ========================================================================
-        logStep(5, "Approve WmUSDC for Morpho Collateral", "\x1b[33m");
-
-        console.log(`Approving WmUSDC to Morpho Blue...`);
-        const approveForMorphoTx = await wmUSDC.approve(BASE_SEPOLIA.morphoBlue, wmUsdcBalance, { nonce: nonce++ });
-        await approveForMorphoTx.wait();
-        console.log(`✓ Approval confirmed (${approveForMorphoTx.hash})`);
-
-        // ========================================================================
-        // STEP 6: Supply WmUSDC as Collateral to Morpho
-        // ========================================================================
-        logStep(6, "Supply WmUSDC as Collateral to Morpho Blue", "\x1b[33m");
-
-        console.log(`Supplying ${ethers.formatUnits(wmUsdcBalance, 18)} WmUSDC as collateral...`);
-        const supplyCollateralTx = await morpho.supplyCollateral(marketParams, wmUsdcBalance, signerAddress, "0x", { nonce: nonce++ });
-        await supplyCollateralTx.wait();
-        console.log(`✓ Collateral supply confirmed (${supplyCollateralTx.hash})`);
-      }
-
-      let isReadyToBorrow = true;
+      let isReadyToBorrow = false;
       if (isReadyToBorrow) {
+        const wmUsdcBalance = await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
+        if (wmUsdcBalance > 0) {
+          // ========================================================================
+          // STEP 5: Approve WmUSDC to Morpho Blue
+          // ========================================================================
+          logStep(5, "Approve WmUSDC for Morpho Collateral", "\x1b[33m");
+
+          console.log(`Approving WmUSDC to Morpho Blue...`);
+          const approveForMorphoTx = await wmUSDC.approve(BASE_SEPOLIA.morphoBlue, wmUsdcBalance, { nonce: nonce++ });
+          await approveForMorphoTx.wait();
+          console.log(`✓ Approval confirmed (${approveForMorphoTx.hash})`);
+
+          // ========================================================================
+          // STEP 6: Supply WmUSDC as Collateral to Morpho
+          // ========================================================================
+          logStep(6, "Supply WmUSDC as Collateral to Morpho Blue", "\x1b[33m");
+
+          console.log(`Supplying ${ethers.formatUnits(wmUsdcBalance, 18)} WmUSDC as collateral...`);
+          const supplyCollateralTx = await morpho.supplyCollateral(marketParams, wmUsdcBalance, signerAddress, "0x", { nonce: nonce++ });
+          await supplyCollateralTx.wait();
+          console.log(`✓ Collateral supply confirmed (${supplyCollateralTx.hash})`);
+        }
+
         // ========================================================================
         // STEP 7: Borrow MXNB_test from Morpho
         // ========================================================================
@@ -409,7 +412,7 @@ async function main() {
 
     }
 
-    let isUnwrappingFlow = false;
+    let isUnwrappingFlow = true;
     if (isUnwrappingFlow) {
       let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
       await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);

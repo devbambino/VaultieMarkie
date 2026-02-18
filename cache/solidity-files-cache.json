@@ -606,7 +606,7 @@
       ]
     },
     "/workspaces/VaultieMarkie/contracts/EthUsdcOracle.sol": {
-      "lastModificationDate": 1770741127415,
+      "lastModificationDate": 1770953677337,
       "contentHash": "14524b02b22be3e4b7605b7b4b5a9f1e",
       "sourceName": "contracts/EthUsdcOracle.sol",
       "solcConfig": {
@@ -642,7 +642,7 @@
       ]
     },
     "/workspaces/VaultieMarkie/contracts/MockWETH.sol": {
-      "lastModificationDate": 1770287331228,
+      "lastModificationDate": 1770953677337,
       "contentHash": "5949f411d795c61f318ffa70734b2a44",
       "sourceName": "contracts/MockWETH.sol",
       "solcConfig": {
@@ -681,7 +681,7 @@
       ]
     },
     "/workspaces/VaultieMarkie/contracts/MockMXNB.sol": {
-      "lastModificationDate": 1770652917443,
+      "lastModificationDate": 1770953677337,
       "contentHash": "149ec1567868b646277ad3e2b2eb9c7d",
       "sourceName": "contracts/MockMXNB.sol",
       "solcConfig": {
@@ -720,8 +720,8 @@
       ]
     },
     "/workspaces/VaultieMarkie/contracts/WmUSDC.sol": {
-      "lastModificationDate": 1770659088988,
-      "contentHash": "161c5ff23d0d3fe0331a482ad180c9ec",
+      "lastModificationDate": 1771432275899,
+      "contentHash": "b6a8f641f6796ae27890d83e81879985",
       "sourceName": "contracts/WmUSDC.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -757,11 +757,12 @@
         "^0.8.19"
       ],
       "artifacts": [
+        "IMorphoVault",
         "WmUSDC"
       ]
     },
     "/workspaces/VaultieMarkie/contracts/WmusdcMxnbOracle.sol": {
-      "lastModificationDate": 1770741359281,
+      "lastModificationDate": 1770953677338,
       "contentHash": "74c9d75905000e39d3e6c65ba3af4891",
       "sourceName": "contracts/WmusdcMxnbOracle.sol",
       "solcConfig": {
@@ -797,7 +798,7 @@
       ]
     },
     "/workspaces/VaultieMarkie/contracts/MXNBFaucet.sol": {
-      "lastModificationDate": 1770952187671,
+      "lastModificationDate": 1770953677337,
       "contentHash": "f50d25e1628d7831a45ebc41ec2ad692",
       "sourceName": "contracts/MXNBFaucet.sol",
       "solcConfig": {

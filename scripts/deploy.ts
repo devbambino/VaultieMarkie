@@ -96,7 +96,7 @@ async function main() {
     // ============================================================================
     // 2. Deploy MXNBFaucet
     // ============================================================================
-    let isDeployingMXNBFaucet = true;
+    let isDeployingMXNBFaucet = false;
     let mockMXNBAddress = "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E"; // Use existing MockMXNB address
 
     if (isDeployingMXNBFaucet) {
@@ -142,7 +142,7 @@ async function main() {
     // ============================================================================
     // 2. Deploy WmUSDC
     // ============================================================================
-    let isDeployingWmUSDC = false;
+    let isDeployingWmUSDC = true;
     if (isDeployingWmUSDC) {
       console.log("[2/3] Deploying WmUSDC...");
 
@@ -203,6 +203,8 @@ async function main() {
     console.log("2. Update frontend/app.js with the above addresses");
     console.log("3. Run: npx hardhat run scripts/createMarket.ts --network baseSepolia");
     console.log("");
+
+    return;
 
     // ============================================================================
     // Save addresses to JSON for reference
