@@ -32,7 +32,7 @@ const USDC_MARKET_ID = "0x6af42641dd1ddc4fd0c3648e45497a29b78eb50d21fd0f6eac7b8e
 
 let isRepayment = false;
 // Collateral Amount to supply (0.1 WETH = 1 * 10^17 wei = 198 USD)
-const SUPPLY_AMOUNT = ethers.parseUnits("0", 18);
+const SUPPLY_AMOUNT = ethers.parseUnits("0.3", 18);
 // Amount to borrow (5 USDC = 5 * 10^6 wei)
 const BORROW_AMOUNT = ethers.parseUnits("200", 6);
 
@@ -90,6 +90,8 @@ async function calculateDebtFromShares(
     const totalBorrowShares = market[3];
 
     if (totalBorrowShares === 0n) return totalBorrowAssets;
+
+    console.log("debt - borrowShares:", borrowShares, " totalBorrowAssets:", totalBorrowAssets, " totalBorrowShares:", totalBorrowShares);
 
     const debtAssets = (borrowShares * totalBorrowAssets) / totalBorrowShares;
     return debtAssets;
@@ -159,6 +161,8 @@ async function main() {
       "function borrow(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver) external returns (uint256, uint256)",
       "function repay(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data) external returns (uint256, uint256)",
       "function withdrawCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, address receiver) external",
+      "function idToMarketParams(bytes32 id) external view returns (tuple(address loanToken,address collateralToken,address oracle,address irm,uint256 lltv))",
+      "function market(bytes32 id) external view returns (tuple(uint128,uint128,uint128,uint128,uint128,uint128))", //totalSupplyAssets uint128, totalSupplyShares uint128, totalBorrowAssets uint128, totalBorrowShares uint128, lastUpdate uint128, fee uint128
     ];
 
     const VAULT_ABI = [
@@ -202,6 +206,15 @@ async function main() {
     // Calculate actual debt
     const debtAssets = await calculateDebtFromShares(morpho, USDC_MARKET_ID, borrowShares);
     console.log(`Calculated debt: ${debtAssets} loan token`);
+    // Try to get market data if morpho has a market() function
+    /*const market = await morpho.market(USDC_MARKET_ID);
+    console.log("Market: ",market);
+    const totalBorrowAssets = market[2];
+    const totalBorrowShares = market[3];
+    if (totalBorrowShares === 0n) return totalBorrowAssets;
+    console.log("debt - borrowShares:", borrowShares, " totalBorrowAssets:", totalBorrowAssets, " totalBorrowShares:", totalBorrowShares);
+    const debtAssets = (borrowShares * totalBorrowAssets) / totalBorrowShares;
+    */
 
     const loanBalance = await usdc.balanceOf(signerAddress);
     console.log(`Available loan token balance: ${ethers.formatUnits(loanBalance, 6)}`);
@@ -231,7 +244,7 @@ async function main() {
 
         console.log(`Repaying ${debtAssets} loan tokens (${borrowShares.toString()} shares)...`);
 
-        
+
         const repayTx = await morpho.repay(
           marketParams,
           0,              // assets (0 = let shares determine the amount)

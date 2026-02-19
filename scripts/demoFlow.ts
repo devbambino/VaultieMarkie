@@ -309,7 +309,7 @@ async function main() {
 
     }
 
-    let isRepayFlow = false;
+    let isRepayFlow = true;
     if (isRepayFlow) {
       // ========================================================================
       // STEP 8: Repay MXNB_test Loan
@@ -412,7 +412,7 @@ async function main() {
 
     }
 
-    let isUnwrappingFlow = true;
+    let isUnwrappingFlow = false;
     if (isUnwrappingFlow) {
       let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
       await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
