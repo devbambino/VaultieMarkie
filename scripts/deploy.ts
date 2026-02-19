@@ -149,7 +149,7 @@ async function main() {
       // Morpho USDC Vault mUSDC address on Base Sepolia
       const MUSDC_ADDRESS = "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9";
 
-      const WmUSDC = await ethers.getContractFactory("WmUSDC");
+      const WmUSDC = await ethers.getContractFactory("SmartWrapper");
       const wmUSDC = await WmUSDC.deploy(MUSDC_ADDRESS);
       await wmUSDC.waitForDeployment();
       const wmUSDCAddress = await wmUSDC.getAddress();

@@ -720,8 +720,8 @@
       ]
     },
     "/workspaces/VaultieMarkie/contracts/WmUSDC.sol": {
-      "lastModificationDate": 1771470126506,
-      "contentHash": "d505d11eb2ca7f8dc3283b5b72cf0c55",
+      "lastModificationDate": 1771472140692,
+      "contentHash": "d37c5275333602a0028335ba066e1bdd",
       "sourceName": "contracts/WmUSDC.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -758,7 +758,7 @@
       ],
       "artifacts": [
         "IMorphoVault",
-        "WmUSDC"
+        "SmartWrapper"
       ]
     },
     "/workspaces/VaultieMarkie/contracts/WmusdcMxnbOracle.sol": {
@@ -834,6 +834,48 @@
       ],
       "artifacts": [
         "MXNBFaucet"
+      ]
+    },
+    "/workspaces/VaultieMarkie/contracts/WmUSDCbug.sol": {
+      "lastModificationDate": 1771472019637,
+      "contentHash": "d505d11eb2ca7f8dc3283b5b72cf0c55",
+      "sourceName": "contracts/WmUSDCbug.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "IMorphoVault",
+        "WmUSDC"
       ]
     }
   }
