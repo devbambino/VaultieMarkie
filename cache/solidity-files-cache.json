@@ -835,6 +835,44 @@
       "artifacts": [
         "MXNBFaucet"
       ]
+    },
+    "/workspaces/VaultieMarkie/contracts/DebtLents.sol": {
+      "lastModificationDate": 1771517416076,
+      "contentHash": "918a9a5a644cbd4b1bfada2b25f2154b",
+      "sourceName": "contracts/DebtLents.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "DebtLens",
+        "IIrm",
+        "IMorpho"
+      ]
     }
   }
 }
