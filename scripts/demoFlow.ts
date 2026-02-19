@@ -29,7 +29,7 @@ import * as ethersLib from "ethers";
 const CONTRACT_ADDRESSES = {
   mockMXNB: "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E",
   mockWETH: "0x1ddebA64A8B13060e13d15504500Dd962eECD35B",
-  wmUSDC: "0xc6926A0024069f288aeC1470722B5539B4778A94",//"0xCa4625EA7F3363d7E9e3090f9a293b64229FE55B",
+  wmUSDC: "0xc3cA57cD5E80d98f817F5329E9a220c716f9642d",//"0xCa4625EA7F3363d7E9e3090f9a293b64229FE55B",
   wmusdcMxnbOracle: "0x9f4b138BF3513866153Af9f0A2794096DFebFaD4",
   ethUsdcOracle: "0x97EBCdb0F784CDc9F91490bEBC9C8756491814a3",
   morphoUSDCVault: "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9", // Morpho USDC Vault - UPDATE AFTER CREATION
@@ -309,7 +309,7 @@ async function main() {
 
     }
 
-    let isRepayFlow = true;
+    let isRepayFlow = false;
     if (isRepayFlow) {
       // ========================================================================
       // STEP 8: Repay MXNB_test Loan
@@ -412,7 +412,7 @@ async function main() {
 
     }
 
-    let isUnwrappingFlow = false;
+    let isUnwrappingFlow = true;
     if (isUnwrappingFlow) {
       let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
       await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
