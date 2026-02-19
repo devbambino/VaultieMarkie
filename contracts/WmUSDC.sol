@@ -37,14 +37,13 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
 
     // Track per-user deposits in USDC-equivalent value
     mapping(address => uint256) public userDepositedAssets;
-
-    // Accumulated yield (mUSDC shares) owned by the contract/owner
-    uint256 public accumulatedShares;
+    mapping(address => uint256) public userDepositedShares;
+    mapping(address => uint256) public userGenertedYieldInShares;
+    mapping(address => uint256) public userGenertedYieldInAssets;
 
     // Events
     event Deposited(address indexed user, uint256 assets, uint256 shares);
     event Withdrawn(address indexed user, uint256 assets, uint256 shares);
-    event YieldAccumulated(uint256 yieldShares, uint256 timestamp);
     event YieldWithdrawn(address indexed recipient, uint256 amount, uint256 timestamp);
 
     /**
@@ -123,11 +122,9 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         require(assets > 0, "Cannot deposit zero");
         require(receiver != address(0), "Invalid receiver");
 
-        // Convert mUSDC shares to USDC-equivalent value
-        uint256 usdcAssets = _convertMUSDCToUSDC(assets);
-        
         // Calculate shares based on USDC equivalent value
-        shares = previewDeposit(usdcAssets);
+        // Note: previewDeposit takes mUSDC assets as input
+        shares = previewDeposit(assets);
         
         // Transfer mUSDC from caller to this contract
         require(
@@ -136,13 +133,15 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         );
         
         // Track user's deposited USDC-equivalent amount
-        userDepositedAssets[receiver] += usdcAssets;
+        userDepositedAssets[receiver] += shares;
+
+        userDepositedShares[receiver] += assets;
         
         // Mint shares to receiver
         _mint(receiver, shares);
         
-        emit Deposited(receiver, usdcAssets, shares);
-        emit Deposit(msg.sender, receiver, usdcAssets, shares);
+        emit Deposited(receiver, shares, shares);
+        emit Deposit(msg.sender, receiver, shares, shares);
         
         return shares;
     }
@@ -156,8 +155,8 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
      * @dev
      * The withdrawal captures yield by:
      * 1. Converting requested USDC assets to mUSDC shares needed
-     * 2. Checking how many shares we actually hold
-     * 3. Keeping any extra shares as accumulated yield for the owner
+     * 2. Burning equivalent shares (1:1 with USDC assets)
+     * 3. Any excess mUSDC held by contract remains as yield
      */
     function withdraw(uint256 assets, address receiver, address owner)
         public
@@ -167,7 +166,7 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         require(assets > 0, "Cannot withdraw zero");
         require(receiver != address(0), "Invalid receiver");
 
-        // Calculate WmUSDC shares to burn based on USDC assets
+        // Calculate WmUSDC shares to burn based on USDC assets (1:1)
         shares = previewWithdraw(assets);
         
         // Approve and burn shares from owner
@@ -177,30 +176,19 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
             _approve(owner, msg.sender, allowed - shares);
         }
         
-        // Capture totalSupply before burning
-        uint256 totalSupplyBefore = totalSupply();
         _burn(owner, shares);
         
         // Calculate mUSDC shares needed to cover the USDC assets
         uint256 mUSDCNeeded = _convertUSDCToMUSDC(assets);
         
-        // Get current mUSDC balance
-        uint256 mUSDCBalance = _vaultUSDC.balanceOf(address(this));
-        
-        // Capture yield: any excess mUSDC over what's needed
-        if (mUSDCBalance > mUSDCNeeded) {
-            uint256 yieldShares = mUSDCBalance - mUSDCNeeded;
-            accumulatedShares += yieldShares;
-            emit YieldAccumulated(yieldShares, block.timestamp);
-        }
-        
         // Transfer exact mUSDC to receiver
         require(_vaultUSDC.transfer(receiver, mUSDCNeeded), "Transfer failed");
         
-        // Update user's deposited assets tracking using totalSupply from before burn
-        if (totalSupplyBefore > 0) {
-            uint256 userShare = (userDepositedAssets[owner] * shares) / totalSupplyBefore;
-            userDepositedAssets[owner] -= userShare;
+        // Update user's deposited assets tracking
+        if (userDepositedAssets[owner] >= shares) {
+            userDepositedAssets[owner] -= shares;
+        } else {
+            userDepositedAssets[owner] = 0;
         }
         
         emit Withdrawn(owner, assets, shares);
@@ -224,11 +212,8 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         require(shares > 0, "Cannot mint zero");
         require(receiver != address(0), "Invalid receiver");
 
-        // Calculate USDC value needed for the shares
-        uint256 usdcAssets = previewMint(shares);
-        
-        // Convert USDC to mUSDC shares needed
-        assets = _convertUSDCToMUSDC(usdcAssets);
+        // Calculate mUSDC needed for the shares
+        assets = previewMint(shares);
         
         require(
             _vaultUSDC.transferFrom(msg.sender, address(this), assets),
@@ -236,12 +221,12 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         );
         
         // Track user's deposited USDC-equivalent amount
-        userDepositedAssets[receiver] += usdcAssets;
+        userDepositedAssets[receiver] += shares;
         
         // Mint exact shares
         _mint(receiver, shares);
         
-        emit Deposit(msg.sender, receiver, usdcAssets, shares);
+        emit Deposit(msg.sender, receiver, shares, shares);
         
         return assets;
     }
@@ -252,11 +237,6 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
      * @param receiver Address to receive mUSDC
      * @param owner Address whose shares are burned
      * @return assets Amount of mUSDC returned
-     * @dev
-     * The redemption captures yield by:
-     * 1. Converting shares to USDC-equivalent assets
-     * 2. Converting USDC assets to mUSDC shares needed
-     * 3. Keeping any extra mUSDC shares as accumulated yield
      */
     function redeem(uint256 shares, address receiver, address owner)
         public
@@ -266,51 +246,54 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         require(shares > 0, "Cannot redeem zero");
         require(receiver != address(0), "Invalid receiver");
 
-        // Calculate USDC-equivalent assets user is entitled to
-        uint256 usdcAssets = previewRedeem(shares);
-        
         if (msg.sender != owner) {
             uint256 allowed = allowance(owner, msg.sender);
             require(allowed >= shares, "Insufficient allowance");
             _approve(owner, msg.sender, allowed - shares);
         }
         
-        // Capture totalSupply before burning
-        uint256 totalSupplyBefore = totalSupply();
+        // Calculate mUSDC shares to return
+        assets = previewRedeem(shares);
+        
         _burn(owner, shares);
-        
-        // Convert USDC assets to mUSDC shares needed
-        assets = _convertUSDCToMUSDC(usdcAssets);
-        
-        // Get current mUSDC balance
-        uint256 mUSDCBalance = _vaultUSDC.balanceOf(address(this));
-        
-        // Capture yield: any excess mUSDC over what's needed
-        if (mUSDCBalance > assets) {
-            uint256 yieldShares = mUSDCBalance - assets;
-            accumulatedShares += yieldShares;
-            emit YieldAccumulated(yieldShares, block.timestamp);
-        }
         
         // Transfer calculated mUSDC to receiver
         require(_vaultUSDC.transfer(receiver, assets), "Transfer failed");
         
-        // Update user's deposited assets tracking using totalSupply from before burn
-        if (totalSupplyBefore > 0) {
-            uint256 userShare = (userDepositedAssets[owner] * shares) / totalSupplyBefore;
-            userDepositedAssets[owner] -= userShare;
+        // Update user's deposited assets tracking
+        if (userDepositedAssets[owner] >= shares) {
+            userDepositedAssets[owner] -= shares;
+        } else {
+            userDepositedAssets[owner] = 0;
         }
         
-        emit Withdraw(msg.sender, receiver, owner, usdcAssets, shares);
+        emit Withdraw(msg.sender, receiver, owner, shares, shares);
         
         return assets;
     }
 
     /**
-     * @notice Preview how many shares would be minted for a given amount of USDC assets
-     * @param assets Amount of USDC assets to deposit
-     * @return Shares that would be minted
-     * @dev These are USDC-equivalent assets (not mUSDC shares)
+     * @notice Convert USDC assets to shares (1:1)
+     * @param assets Amount of USDC assets
+     * @return Shares
+     */
+    function convertToShares(uint256 assets) public pure override returns (uint256) {
+        return assets;
+    }
+
+    /**
+     * @notice Convert shares to USDC assets (1:1)
+     * @param shares Amount of shares
+     * @return USDC Assets
+     */
+    function convertToAssets(uint256 shares) public pure override returns (uint256) {
+        return shares;
+    }
+
+    /**
+     * @notice Preview how many shares would be minted for a given amount of mUSDC
+     * @param assets Amount of mUSDC to deposit
+     * @return Shares that would be minted (USDC Value)
      */
     function previewDeposit(uint256 assets)
         public
@@ -318,33 +301,27 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         override(ERC4626)
         returns (uint256)
     {
-        // shares = assets / (totalAssets / totalSupply)
-        // If totalAssets = 0, 1 asset = 1 share
-        uint256 supply = totalSupply();
-        return supply == 0 ? assets : (assets * supply) / totalAssets();
+        return _convertMUSDCToUSDC(assets);
     }
 
     /**
-     * @notice Preview how many USDC assets would be withdrawn for a given number of shares
+     * @notice Preview how many Shares would be burned for a given amount of USDC
      * @param assets Amount of USDC assets to withdraw
      * @return Shares that would be burned
      */
     function previewWithdraw(uint256 assets)
         public
-        view
+        pure
         override(ERC4626)
         returns (uint256)
     {
-        // shares = assets / (totalAssets / totalSupply)
-        uint256 total = totalAssets();
-        uint256 supply = totalSupply();
-        return supply == 0 ? assets : (assets * supply + total - 1) / total; // Round up
+        return assets;
     }
 
     /**
-     * @notice Preview how many USDC assets would be needed to mint given shares
+     * @notice Preview how many mUSDC assets would be needed to mint given shares
      * @param shares Amount of shares to mint
-     * @return Assets required (in USDC equivalent)
+     * @return Assets required (mUSDC)
      */
     function previewMint(uint256 shares)
         public
@@ -352,15 +329,13 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         override(ERC4626)
         returns (uint256)
     {
-        // assets = shares * (totalAssets / totalSupply)
-        uint256 supply = totalSupply();
-        return supply == 0 ? shares : (shares * totalAssets() + supply - 1) / supply; // Round up
+        return _convertUSDCToMUSDC(shares);
     }
 
     /**
-     * @notice Preview how many USDC assets would be returned for redeeming shares
+     * @notice Preview how many mUSDC assets would be returned for redeeming shares
      * @param shares Amount of shares to redeem
-     * @return Assets that would be returned (in USDC equivalent)
+     * @return Assets that would be returned (mUSDC)
      */
     function previewRedeem(uint256 shares)
         public
@@ -368,16 +343,28 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         override(ERC4626)
         returns (uint256)
     {
-        // assets = shares * (totalAssets / totalSupply)
-        uint256 supply = totalSupply();
-        return supply == 0 ? shares : (shares * totalAssets()) / supply;
+        return _convertUSDCToMUSDC(shares);
+    }
+
+    /**
+     * @notice Get the currently accumulated yield in mUSDC
+     * @return Amount of mUSDC held in excess of user deposits
+     */
+    function getAccumulatedYield() public view returns (uint256) {
+        uint256 mUSDCBalance = _vaultUSDC.balanceOf(address(this));
+        uint256 mUSDCRequired = _convertUSDCToMUSDC(totalSupply());
+        
+        if (mUSDCBalance > mUSDCRequired) {
+            return mUSDCBalance - mUSDCRequired;
+        }
+        return 0;
     }
 
     /**
      * @notice Withdraw accumulated yield (mUSDC shares) owned by the contract
      * @param amount Amount of mUSDC shares to withdraw
      * @param recipient Address to receive the mUSDC
-     * @dev Only owner can call this. Yield is captured during user withdrawals/redeems
+     * @dev Only owner can call this. Yield is calculated dynamically.
      */
     function withdrawAccumulatedYield(uint256 amount, address recipient)
         external
@@ -385,14 +372,27 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
     {
         require(amount > 0, "Cannot withdraw zero");
         require(recipient != address(0), "Invalid recipient");
-        require(amount <= accumulatedShares, "Insufficient accumulated yield");
-
-        // Reduce accumulated shares counter
-        accumulatedShares -= amount;
+        
+        uint256 available = getAccumulatedYield();
+        require(amount <= available, "Insufficient accumulated yield");
 
         // Transfer mUSDC to recipient
         require(_vaultUSDC.transfer(recipient, amount), "Transfer failed");
 
         emit YieldWithdrawn(recipient, amount, block.timestamp);
+    }
+
+    function withdrawAllAccumulatedYield(address recipient)
+        external
+        onlyOwner
+    {
+        require(recipient != address(0), "Invalid recipient");
+        
+        uint256 available = getAccumulatedYield();
+
+        // Transfer mUSDC to recipient
+        require(_vaultUSDC.transfer(recipient, available), "Transfer failed");
+
+        emit YieldWithdrawn(recipient, available, block.timestamp);
     }
 }
