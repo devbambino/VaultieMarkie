@@ -78,6 +78,45 @@ contract DebtLens {
     }
 
     /**
+     * @notice Calculate only the accrued interest for a user's position
+     * @param marketId The unique identifier of the market
+     * @param user The user's address
+     * @return The accrued interest amount (in loan token units)
+     */
+    function getAccruedInterest(bytes32 marketId, address user) external view returns (uint256) {
+        IMorpho morpho = IMorpho(MORPHO_ADDRESS);
+        
+        // 1. Fetch data from Morpho Blue
+        IMorpho.MarketParams memory params = morpho.idToMarketParams(marketId);
+        IMorpho.Market memory market = morpho.market(marketId);
+        IMorpho.Position memory pos = morpho.position(marketId, user);
+
+        if (pos.borrowShares == 0) return 0;
+
+        // 2. Calculate principal (original borrowed amount)
+        uint256 totalBorrowShares = uint256(market.totalBorrowShares);
+        uint256 principal = (pos.borrowShares * uint256(market.totalBorrowAssets) + totalBorrowShares - 1) / totalBorrowShares;
+
+        // 3. Calculate current total debt (with accrued interest)
+        uint256 elapsed = block.timestamp - uint256(market.lastUpdate);
+        uint256 currentTotalBorrowAssets = uint256(market.totalBorrowAssets);
+
+        if (elapsed > 0 && currentTotalBorrowAssets > 0 && params.irm != address(0)) {
+            // Get the annual rate from the Interest Rate Model
+            uint256 borrowRate = IIrm(params.irm).borrowRateView(params, market);
+            
+            // Calculate compounding interest using Taylor expansion
+            uint256 interest = (currentTotalBorrowAssets * _wTaylorCompounded(borrowRate, elapsed)) / WAD;
+            currentTotalBorrowAssets += interest;
+        }
+
+        uint256 totalDebt = (pos.borrowShares * currentTotalBorrowAssets + totalBorrowShares - 1) / totalBorrowShares;
+
+        // 4. Return accrued interest (total debt - principal)
+        return totalDebt > principal ? totalDebt - principal : 0;
+    }
+
+    /**
      * @dev Morpho's Taylor expansion for e^(rate * dt) - 1
      * This is the exact math used by Morpho Blue for interest.
      */
