@@ -32,7 +32,7 @@ const USDC_MARKET_ID = "0x6af42641dd1ddc4fd0c3648e45497a29b78eb50d21fd0f6eac7b8e
 
 let isRepayment = false;
 // Collateral Amount to supply (0.1 WETH = 1 * 10^17 wei = 198 USD)
-const SUPPLY_AMOUNT = ethers.parseUnits("0.3", 18);
+const SUPPLY_AMOUNT = ethers.parseUnits("0", 18);
 // Amount to borrow (5 USDC = 5 * 10^6 wei)
 const BORROW_AMOUNT = ethers.parseUnits("200", 6);
 

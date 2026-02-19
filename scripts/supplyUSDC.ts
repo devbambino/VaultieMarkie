@@ -13,8 +13,8 @@ const CONTRACT_ADDRESSES = {
 let isDepositingUSDC = true;
 // Amount to mint (100 mockWETH with 18 decimals)
 const MINT_AMOUNT = ethers.parseUnits("100", 18);
-// Amount to deposit to vault, 100 USDC
-const DEPOSIT_AMOUNT = ethers.parseUnits("100", 6);
+// Amount to deposit to vault, 5 USDC
+const DEPOSIT_AMOUNT = ethers.parseUnits("5", 6);
 
 // Load market details from previous script
 let VAULT_ADDRESS: string;

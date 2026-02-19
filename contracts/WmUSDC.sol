@@ -39,7 +39,7 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
     mapping(address => uint256) public userDepositedAssets;
     mapping(address => uint256) public userDepositedShares;
     mapping(address => uint256) public userGeneratedYieldInShares;
-    mapping(address => uint256) public userGeneratedYieldInAssets;
+    mapping(address => uint256) public userGeneratedYieldInUSDC;
 
     // Events
     event Deposited(address indexed user, uint256 assets, uint256 shares);
