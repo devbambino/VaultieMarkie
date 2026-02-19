@@ -17,6 +17,20 @@ interface IMorphoVault is IERC20 {
 }
 
 /**
+ * @notice Interface for DebtLens contract to calculate accrued interest
+ */
+interface IDebtLens {
+    function getAccruedInterest(bytes32 marketId, address user) external view returns (uint256);
+}
+
+/**
+ * @notice Interface for WmusdcMxnbOracle to get price conversion
+ */
+interface IWmusdcMxnbOracle {
+    function price() external view returns (uint256);
+}
+
+/**
  * @title WmUSDC
  * @notice ERC-4626 wrapper around Morpho Vault token (vaultUSDC)
  * @dev
@@ -35,12 +49,19 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
     // Reference to the underlying Morpho Vault token
     IMorphoVault private immutable _vaultUSDC;
 
+    // Deployed contract addresses for interest subsidy
+    address public constant DEBT_LENS = 0x14751F624968372878cDE4238e84Fb3D980C4F05;
+    address public constant MXNB_USDC_ORACLE = 0x9f4b138BF3513866153Af9f0A2794096DFebFaD4;
+    bytes32 public constant marketId = 0xf912f62db71d01c572b28b6953c525851f9e0660df4e422cec986e620da726df;
+
     // Track per-user deposits in USDC-equivalent value
     mapping(address => uint256) public userDepositedAssets;
     mapping(address => uint256) public userDepositedShares;
     mapping(address => uint256) public userGeneratedYieldInShares;
     mapping(address => uint256) public userGeneratedYieldInUSDC;
-
+    mapping(address => uint256) public userSubsidyInUSDC;
+    mapping(address => uint256) public interestSubsidyInWmUSDC;
+    
     // Events
     event Deposited(address indexed user, uint256 assets, uint256 shares);
     event Withdrawn(address indexed user, uint256 assets, uint256 shares);
@@ -103,7 +124,7 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
     /**
      * @notice Convert USDC assets to mUSDC shares
      * @param usdcAssets Amount of USDC assets in 18 decimals
-     * @return mUSDC shares required
+     * @return mUSDC shares required with 18 decimals
      * @dev WmUSDC uses 18 decimals, but Morpho vault expects USDC with 6 decimals
      */
     function _convertUSDCToMUSDC(uint256 usdcAssets) internal view returns (uint256) {
@@ -281,6 +302,105 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         emit Withdraw(msg.sender, receiver, owner, shares, shares);
         
         return assets;
+    }
+
+    /**
+     * @notice Calculate the interest subsidy amount in wmUSDC for a user's MXNB market debt
+     * @param user The user address
+     * @param marketId The Morpho MXNB market ID
+     * @return subsidy Amount of wmUSDC equivalent to the accrued interest
+     * @dev
+     * - Gets accrued interest from DebtLens (in MXNB with 6 decimals)
+     * - Converts MXNB amount to wmUSDC equivalent using the oracle price
+     * - Returns the wmUSDC amount that will be added as cashback
+     */
+    function getInterestSubsidy(address user) external view returns (uint256) {
+        // Get accrued interest in MXNB (6 decimals)
+        uint256 interestInMxnb = IDebtLens(DEBT_LENS).getAccruedInterest(marketId, user);
+        
+        if (interestInMxnb == 0) return 0;
+        
+        // Get oracle price: how many MXNB per WmUSDC (scaled by 1e48)
+        // Formula: WmusdcAmount = MxnbAmount * OraclePrice / 1e48
+        // Since MXNB has 6 decimals and mUSDC has 18 decimals:
+        // We need to scale appropriately
+        uint256 oraclePrice = IWmusdcMxnbOracle(MXNB_USDC_ORACLE).price();
+        
+        // Price is in format: MXNB (6 decimals) per WmUSDC (18 decimals) scaled by 1e36
+        // Result: interestInMxnb (6 decimals) * oraclePrice / 1e36 = USDC equivalent (6 decimals)
+        // Then scale to 18 decimals for WmUSDC
+        uint256 wmUSDCWith6Decimals = (interestInMxnb * 1e36) / oraclePrice;
+        uint256 wmUSDCWith18Decimals = wmUSDCWith6Decimals * 1e12;
+        
+        interestSubsidyInWmUSDC[user] = wmUSDCWith18Decimals;
+        return wmUSDCWith18Decimals;
+    }
+
+    /**
+     * @notice Redeem shares for mUSDC with interest subsidy included
+     * @param shares Amount of WmUSDC shares to redeem
+     * @param receiver Address to receive mUSDC
+     * @param owner Address whose shares are burned
+     * @param marketId The Morpho MXNB market ID for calculating interest subsidy
+     * @return assets Total mUSDC returned (original + interest subsidy)
+     * @dev
+     * Combines the standard redeem with an interest subsidy:
+     * - Burns user's WmUSDC shares
+     * - Returns mUSDC for original shares
+     * - Plus additional mUSDC equal to interest paid in MXNB market
+     */
+    function redeemWithInterestSubsidy(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) external returns (uint256 assets) {
+        require(shares > 0, "Cannot redeem zero");
+        require(receiver != address(0), "Invalid receiver");
+
+        if (msg.sender != owner) {
+            uint256 allowed = allowance(owner, msg.sender);
+            require(allowed >= shares, "Insufficient allowance");
+            _approve(owner, msg.sender, allowed - shares);
+        }
+        
+        // Calculate standard mUSDC return (18 decimals)
+        uint256 standardReturn = previewRedeem(shares);
+        
+        // Get interest subsidy in wmUSDC, wmusdc contract shares, format (18 decimals)
+        uint256 interestSubsidyInWmUSDC = interestSubsidyInWmUSDC[owner];
+
+        // Calculate interest subsidy in mUSDC (18 decimals)
+        uint256 interestSubsidyMUSDC = previewRedeem(interestSubsidyInWmUSDC);
+
+        uint256 userGeneratedYieldInShares = userDepositedShares[owner] - standardReturn;
+
+        uint256 totalMUSDC = standardReturn;
+        if ( userGeneratedYieldInShares > interestSubsidyMUSDC) {
+            totalMUSDC += interestSubsidyMUSDC;
+            uint256 userSubsidyInUSDC = _convertMUSDCToRealUSDC(interestSubsidyMUSDC);
+            userSubsidyInUSDC[owner] = userSubsidyInUSDC;
+        }
+
+        _burn(owner, shares);
+        
+        // Transfer all mUSDC in one transaction
+        require(_vaultUSDC.transfer(receiver, totalMUSDC), "Transfer failed");
+        
+        // Update user's deposited assets tracking
+        if (userDepositedAssets[owner] >= shares) {
+            userDepositedAssets[owner] -= shares;
+            userDepositedShares[owner] -= totalMUSDC;
+            userGeneratedYieldInShares[owner] = userDepositedShares[owner];
+            uint256 yield = _convertMUSDCToRealUSDC(userGeneratedYieldInShares[owner]);
+            userGeneratedYieldInUSDC[owner] = yield;
+            userDepositedShares[owner] = 0;
+        } else {
+            userDepositedAssets[owner] = 0;
+        }
+        
+        emit Withdraw(msg.sender, receiver, owner, shares, shares);
+        
+        return totalMUSDC;
     }
 
     /**
