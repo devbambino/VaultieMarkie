@@ -38,8 +38,8 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
     // Track per-user deposits in USDC-equivalent value
     mapping(address => uint256) public userDepositedAssets;
     mapping(address => uint256) public userDepositedShares;
-    mapping(address => uint256) public userGenertedYieldInShares;
-    mapping(address => uint256) public userGenertedYieldInAssets;
+    mapping(address => uint256) public userGeneratedYieldInShares;
+    mapping(address => uint256) public userGeneratedYieldInAssets;
 
     // Events
     event Deposited(address indexed user, uint256 assets, uint256 shares);
@@ -79,6 +79,12 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
      */
     function decimals() public pure override(ERC20, ERC4626) returns (uint8) {
         return 18;
+    }
+
+    function _convertMUSDCToRealUSDC(uint256 mUSDCShares) internal view returns (uint256) {
+        // convertToAssets returns USDC value with 6 decimals
+        uint256 usdcWith6Decimals = _vaultUSDC.convertToAssets(mUSDCShares);
+        return usdcWith6Decimals;
     }
 
     /**
@@ -263,6 +269,11 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         // Update user's deposited assets tracking
         if (userDepositedAssets[owner] >= shares) {
             userDepositedAssets[owner] -= shares;
+            userDepositedShares[owner] -= assets;
+            userGeneratedYieldInShares[owner] = userDepositedShares[owner];
+            uint256 yield = _convertMUSDCToRealUSDC(userGeneratedYieldInShares[owner]);
+            userGeneratedYieldInUSDC[owner] = yield;
+            userDepositedShares[owner] = 0;
         } else {
             userDepositedAssets[owner] = 0;
         }
