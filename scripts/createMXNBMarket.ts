@@ -7,9 +7,9 @@ import * as path from "path";
 // ============================================================================
 const CONTRACT_ADDRESSES = {
   mockMXNB: "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E", // From deploy.ts output
-  wmUSDC: "0xCa4625EA7F3363d7E9e3090f9a293b64229FE55B",   // From deploy.ts output
+  wmUSDC: "0xc3cA57cD5E80d98f817F5329E9a220c716f9642d",   // From deploy.ts output
   fixedPriceOracle: "0x9f4b138BF3513866153Af9f0A2794096DFebFaD4",//"0x3fC166B4eC635B1bddcD04AfaB1a012Ac7c4105E", // From deploy.ts output
-  vaultAddress: "0xd6a83595b11CCC94bCcde4c9654bcaa6D423896e",
+  vaultAddress: ""//"0xd6a83595b11CCC94bCcde4c9654bcaa6D423896e",
 };
 
 // Morpho Blue on Base Sepolia
@@ -27,8 +27,8 @@ const IRM_ADDRESS = "0x46415998764C29aB2a25CbeA6254146D50D22687";
 
 // Vault configuration
 const VAULT_CONFIG = {
-  name: "Morpho MXNB Vault",
-  symbol: "vMXNB",
+  name: "RapiLoans MXNB Vault",
+  symbol: "rlvMXNB",
   initialTimelock: 0, // 0 seconds for testing, can be increased later to 86400 (1 day)
   supplyCapAmount: ethers.parseUnits("100000000", 6), // 100000000 MXNB cap
 };
@@ -187,7 +187,7 @@ async function main() {
     console.log("");
 
 
-    let isCreatingVault = false;
+    let isCreatingVault = true;
     let vaultAddress = "";
     const vaultFactory = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, deployer);
     if (isCreatingVault) {
@@ -208,6 +208,8 @@ async function main() {
       console.log(`  Vault Factory: ${VAULT_FACTORY_ADDRESS}`);
       console.log(`  Salt: ${vaultSalt}`);
 
+      let nonce = await ethers.provider.getTransactionCount(deployer.address, "pending");
+
       try {
         const createVaultTx = await vaultFactory.createMetaMorpho(
           deployer.address,             // initialOwner
@@ -215,7 +217,8 @@ async function main() {
           CONTRACT_ADDRESSES.mockMXNB,  // asset (mockMXNB)
           VAULT_CONFIG.name,            // name
           VAULT_CONFIG.symbol,          // symbol
-          vaultSalt                     // salt
+          vaultSalt,                     // salt
+          { nonce: nonce++ }
         );
 
         vaultReceipt = await createVaultTx.wait();
@@ -279,10 +282,10 @@ async function main() {
 
         // Submit supply cap for the market
         console.log(
-          `Submitting supply cap: ${ethers.formatUnits(VAULT_CONFIG.supplyCapAmount, 6)} cCOP`
+          `Submitting supply cap: ${ethers.formatUnits(VAULT_CONFIG.supplyCapAmount, 6)} MXNB`
         );
 
-        const submitCapTx = await vault.submitCap(marketParams, VAULT_CONFIG.supplyCapAmount);
+        const submitCapTx = await vault.submitCap(marketParams, VAULT_CONFIG.supplyCapAmount, { nonce: nonce++ });
         const submitCapReceipt = await submitCapTx.wait();
 
         console.log(`✓ Supply cap submitted!`);
@@ -290,11 +293,17 @@ async function main() {
         console.log(`  Block Number: ${submitCapReceipt?.blockNumber}`);
         console.log("");
 
+        // ============================================================================
+        // [5/3] Configure Vault: Accept Cap
+        // ============================================================================
+        console.log("[5/3] Configure Vault:  Call acceptCap()...");
+        console.log("Call acceptCap() with the market parameters to accept the pending supply cap");
+
         // Accept cap if timelock is 0 (for testing)
         if (VAULT_CONFIG.initialTimelock === 0) {
           console.log("Accepting supply cap (timelock = 0)...");
           try {
-            const acceptCapTx = await vault.acceptCap(marketParams);
+            const acceptCapTx = await vault.acceptCap(marketParams, { nonce: nonce++ });
             const acceptCapReceipt = await acceptCapTx.wait();
 
             console.log(`✓ Supply cap accepted!`);
@@ -312,11 +321,7 @@ async function main() {
           console.log("");
         }
 
-        // ============================================================================
-        // [5/3] Configure Vault: Accept Cap
-        // ============================================================================
-        console.log("[5/3] Configure Vault:  Call acceptCap()...");
-        console.log("Call acceptCap() with the market parameters to accept the pending supply cap");
+        
 
         // ============================================================================
         // [5/3] Configure Vault: Set Supply Queue
@@ -324,29 +329,12 @@ async function main() {
         console.log("[5/3] Configure Vault:  Call setSupplyQueue()...");
         console.log("Call setSupplyQueue() with the market ID to set the supply queue");
 
-        // ============================================================================
-        // [5/3] Configure Vault: Set Allocator
-        // ============================================================================
-        console.log("[5/5] Configuring vault: Setting allocator...");
-
-        // First, set deployer as allocator so they can set the supply queue
-        console.log("Setting deployer as allocator...");
-        try {
-          const setAllocatorTx = await vault.setIsAllocator(deployer.address, true);
-          await setAllocatorTx.wait();
-          console.log("✓ Deployer set as allocator");
-        } catch (e: any) {
-          console.log("⚠️  Could not set deployer as allocator");
-          throw new Error("Failed to set allocator role. Make sure the deployer is the vault owner.");
-        }
-        console.log("");
-
         console.log(`Setting supply queue with market: ${marketId}`);
         try {
           // Try to set supply queue - this requires the market to have cap > 0
           // If it fails due to zero cap, we'll skip it (user can set it manually later)
           try {
-            const setQueueTx = await vault.setSupplyQueue([marketId]);
+            const setQueueTx = await vault.setSupplyQueue([marketId], { nonce: nonce++ });
             const queueReceipt = await setQueueTx.wait();
 
             console.log(`✓ Supply queue configured!`);
@@ -372,6 +360,23 @@ async function main() {
           console.log("    Call: vault.setSupplyQueue([marketId])");
         }
         console.log("");
+
+        // ============================================================================
+        // [5/3] Configure Vault: Set Allocator
+        // ============================================================================
+        /*console.log("[5/5] Configuring vault: Setting allocator...");
+
+        // First, set deployer as allocator so they can set the supply queue
+        console.log("Setting deployer as allocator...");
+        try {
+          const setAllocatorTx = await vault.setIsAllocator(deployer.address, true);
+          await setAllocatorTx.wait();
+          console.log("✓ Deployer set as allocator");
+        } catch (e: any) {
+          console.log("⚠️  Could not set deployer as allocator");
+          throw new Error("Failed to set allocator role. Make sure the deployer is the vault owner.");
+        }
+        console.log("");*/
       }
 
     } else {
@@ -482,7 +487,7 @@ async function main() {
     console.log("");
 
     // Save market details to JSON
-    const marketDetailsFile = path.join(__dirname, "../market-details-mxnb.json");
+    const marketDetailsFile = path.join(__dirname, "../market-details-mxnb-new.json");
     const marketDetails = {
       marketId,
       vaultAddress: vaultAddress || "pending",

@@ -11,10 +11,10 @@ const CONTRACT_ADDRESSES = {
 };
 
 // Amount to mint (1000000 mockMXNB with 6 decimals)
-const MINT_AMOUNT = ethers.parseUnits("1000000", 6);
+const MINT_AMOUNT = ethers.parseUnits("0", 6);
 
-// Amount to deposit to vault, 100 mockMXNB
-const DEPOSIT_AMOUNT = ethers.parseUnits("100", 6);
+// Amount to deposit to vault, 170 mockMXNB
+const DEPOSIT_AMOUNT = ethers.parseUnits("300", 6);
 
 // Load market details from previous script
 let VAULT_ADDRESS: string;
@@ -22,7 +22,7 @@ let MARKET_ID: string;
 let marketParams: any;
 
 try {
-  const marketDetailsPath = path.join(__dirname, "../market-details-mxnb.json");
+  const marketDetailsPath = path.join(__dirname, "../market-details-mxnb-new.json");
   const marketDetails = JSON.parse(fs.readFileSync(marketDetailsPath, "utf-8"));
   VAULT_ADDRESS = marketDetails.vaultAddress;
   MARKET_ID = marketDetails.marketId;

@@ -33,7 +33,8 @@ const CONTRACT_ADDRESSES = {
   wmusdcMxnbOracle: "0x9f4b138BF3513866153Af9f0A2794096DFebFaD4",
   ethUsdcOracle: "0x97EBCdb0F784CDc9F91490bEBC9C8756491814a3",
   morphoUSDCVault: "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9", // Morpho USDC Vault - UPDATE AFTER CREATION
-  morphoMXNBVault: "0xd6a83595b11CCC94bCcde4c9654bcaa6D423896e", // Morpho MXNB Vault - UPDATE AFTER CREATION
+  morphoMXNBVault: "0x3c7d4B1Ba9Fad0555843924BB942a887b0ceae58", // Morpho MXNB Vault - UPDATE AFTER CREATION
+  debtLens: "0x14751F624968372878cDE4238e84Fb3D980C4F05"
 };
 
 // Base Sepolia addresses (do not change)
@@ -43,14 +44,18 @@ const BASE_SEPOLIA = {
 };
 
 // UPDATE THIS from market-details.json after createMarket.ts
-const MXNB_MARKET_ID = "0xf912f62db71d01c572b28b6953c525851f9e0660df4e422cec986e620da726df"; // Will be set after createMarket.ts
+const MXNB_MARKET_ID = "0xf9f693bcf70a9c57d7dc70358ccace07ef348a24de6a72ed739dc11af0846b35";//"0xf912f62db71d01c572b28b6953c525851f9e0660df4e422cec986e620da726df"; // Will be set after createMarket.ts
 
 // Collateral to supply (5 USDC = 5 * 10^6 wei)
-const SUPPLY_AMOUNT = ethers.parseUnits("5", 6);
+const SUPPLY_AMOUNT = ethers.parseUnits("30", 6);
 
-// Amount to borrow (21.7 MXNB = 21.7 * 10^6 wei)
-const BORROW_AMOUNT = ethers.parseUnits("21.7", 6);
+// Amount to borrow (200 MXNB = 200 * 10^6 wei)
+const BORROW_AMOUNT = ethers.parseUnits("5", 6);
 
+let isSupplyFlow = false;
+let isBorrowFlow = false;
+let isRepayFlow = true;
+let isUnwrappingFlow = true;
 /**
  * Log helper with formatting
  */
@@ -150,7 +155,9 @@ async function main() {
       "function deposit(uint256 assets, address receiver) external returns (uint256)",
       "function balanceOf(address) external view returns (uint256)",
       "function redeem(uint256 shares, address receiver, address owner) external returns (uint256)",
-      "function approve(address spender, uint256 amount) external returns (bool)"
+      "function approve(address spender, uint256 amount) external returns (bool)",
+      "function getInterestSubsidy(address user) external returns (uint256)",
+      "function redeemWithInterestSubsidy(uint256 shares, address receiver, address owner) external returns (uint256)",
     ];
 
     const morphoABI = [
@@ -159,6 +166,7 @@ async function main() {
       "function borrow(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver) external returns (uint256, uint256)",
       "function repay(tuple(address,address,address,address,uint256) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data) external returns (uint256, uint256)",
       "function withdrawCollateral(tuple(address,address,address,address,uint256) marketParams, uint256 amount, address onBehalf, address receiver) external",
+      "function market(bytes32 id) external view returns (tuple(uint128,uint128,uint128,uint128,uint128,uint128))", //totalSupplyAssets uint128, totalSupplyShares uint128, totalBorrowAssets uint128, totalBorrowShares uint128, lastUpdate uint128, fee uint128
     ];
 
     const usdcABI = [
@@ -200,7 +208,6 @@ async function main() {
     await getBalance(morphoUSDCVault, signerAddress, "mUSDC", 18);
     await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
 
-    let isSupplyFlow = false;
     if (isSupplyFlow) {
 
       // ========================================================================
@@ -229,7 +236,7 @@ async function main() {
 
     }
 
-    let isBorrowFlow = false;
+
     if (isBorrowFlow) {
       let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
 
@@ -262,7 +269,7 @@ async function main() {
 
       }
 
-      let isReadyToBorrow = false;
+      let isReadyToBorrow = true;
       if (isReadyToBorrow) {
         const wmUsdcBalance = await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
         if (wmUsdcBalance > 0) {
@@ -309,7 +316,6 @@ async function main() {
 
     }
 
-    let isRepayFlow = false;
     if (isRepayFlow) {
       // ========================================================================
       // STEP 8: Repay MXNB_test Loan
@@ -350,6 +356,10 @@ async function main() {
         nonce++;
 
         console.log(`Repaying ${debtAssets} MXNB (${borrowShares.toString()} shares)...`);
+        /*const interestTx = await wmUSDC.getInterestSubsidy(signerAddress, { nonce: nonce++ });
+        await interestTx.wait();
+        console.log(`✓ Interest tx confirmed (${interestTx.hash})`);*/
+
         const repayTx = await morpho.repay(
           marketParams,
           0,              // assets (0 = let shares determine the amount)
@@ -408,11 +418,8 @@ async function main() {
         }
 
       }
-
-
     }
 
-    let isUnwrappingFlow = true;
     if (isUnwrappingFlow) {
       let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
       await getBalance(wmUSDC, signerAddress, "WmUSDC", 18);
@@ -429,7 +436,7 @@ async function main() {
         //const redeemABI = [""];
         const wmUsdcRedeem = new ethers.Contract(CONTRACT_ADDRESSES.wmUSDC, wmUSDCABI, signer);
 
-        const redeemTx = await wmUsdcRedeem.redeem(wmUsdcFinalBalance, signerAddress, signerAddress, { nonce: nonce++ });
+        const redeemTx = await wmUsdcRedeem.redeemWithInterestSubsidy(wmUsdcFinalBalance, signerAddress, signerAddress, { nonce: nonce++ });
         await redeemTx.wait();
         console.log(`✓ Redeem confirmed (${redeemTx.hash})`);
       }
