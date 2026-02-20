@@ -16,7 +16,7 @@ const MINT_AMOUNT = ethers.parseUnits("0", 6);
 // Amount to deposit to vault, 170 mockMXNB
 const DEPOSIT_AMOUNT = ethers.parseUnits("300", 6);
 
-let isDepositingMXNB = false;
+let isDepositingMXNB = true;
 
 // Load market details from previous script
 let VAULT_ADDRESS: string;

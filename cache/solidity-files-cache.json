@@ -719,8 +719,8 @@
       ]
     },
     "/workspaces/VaultieMarkie/contracts/WmUSDC.sol": {
-      "lastModificationDate": 1771558895425,
-      "contentHash": "47b0b621907cb97b37a520b1765f6b23",
+      "lastModificationDate": 1771596047340,
+      "contentHash": "a2a9bc3c8ec7c94363f28a2a7e3520f6",
       "sourceName": "contracts/WmUSDC.sol",
       "solcConfig": {
         "version": "0.8.20",

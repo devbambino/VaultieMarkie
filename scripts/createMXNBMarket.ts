@@ -7,10 +7,12 @@ import * as path from "path";
 // ============================================================================
 const CONTRACT_ADDRESSES = {
   mockMXNB: "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E", // From deploy.ts output
-  wmUSDC: "0x7831ace764ebB4f4976B3dC0534FAe4211031Ce6",   // From deploy.ts output
+  wmUSDC: "0xBDc7fCDAC92DEe5220215aB6a0f5E1B20A665CD4",   // From deploy.ts output
   fixedPriceOracle: "0x9f4b138BF3513866153Af9f0A2794096DFebFaD4",//"0x3fC166B4eC635B1bddcD04AfaB1a012Ac7c4105E", // From deploy.ts output
-  vaultAddress: "0x0d444472190B2Cd466A5ffF5051B2ae4dDD96510"//"0xd6a83595b11CCC94bCcde4c9654bcaa6D423896e",
+  vaultAddress: "0x3F8FAB03021738f227e3Ad76da51f57522540d30"//"0xd6a83595b11CCC94bCcde4c9654bcaa6D423896e",
 };
+
+let isCreatingVault = false;
 
 // Morpho Blue on Base Sepolia
 const MORPHO_BLUE_ADDRESS = "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb";
@@ -187,7 +189,6 @@ async function main() {
     console.log("");
 
 
-    let isCreatingVault = false;
     let vaultAddress = "";
     const vaultFactory = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, deployer);
     if (isCreatingVault) {
@@ -321,7 +322,7 @@ async function main() {
           console.log("");
         }
 
-        
+
 
         // ============================================================================
         // [5/3] Configure Vault: Set Supply Queue

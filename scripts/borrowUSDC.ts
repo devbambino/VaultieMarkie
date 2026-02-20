@@ -30,11 +30,11 @@ const BASE_SEPOLIA = {
 // UPDATE THIS from market-details.json after createMarket.ts
 const USDC_MARKET_ID = "0x6af42641dd1ddc4fd0c3648e45497a29b78eb50d21fd0f6eac7b8eae2192dd47";//"0x4fc5ba3c0ecfa8df29548fc2988c55cb5fc10eb0b805d281c407ff9966ef244c"; // Will be set after createMarket.ts
 
-let isRepayment = true;
+let isRepayment = false;
 // Collateral Amount to supply (0.1 WETH = 1 * 10^17 wei = 198 USD)
 const SUPPLY_AMOUNT = ethers.parseUnits("0", 18);
 // Amount to borrow (5 USDC = 5 * 10^6 wei)
-const BORROW_AMOUNT = ethers.parseUnits("200", 6);
+const BORROW_AMOUNT = ethers.parseUnits("250", 6);
 
 
 try {
