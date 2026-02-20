@@ -59,16 +59,20 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
     mapping(address => uint256) public userDepositedShares;
     mapping(address => uint256) public userGeneratedYieldInShares;
     mapping(address => uint256) public userGeneratedYieldInUSDC;
-    mapping(address => uint256) public userSubsidyInUSDC;
-    mapping(address => uint256) public interestSubsidyInWmUSDC;
+    mapping(address => uint256) public userInterestSubsidyInWmUSDC;
+    mapping(address => uint256) public userInterestInMxnb;
+    mapping(address => uint256) public userPaidSubsidyInUSDC;
+    
     
     // Events
-    event Deposited(address indexed user, uint256 assets, uint256 shares);
-    event Withdrawn(address indexed user, uint256 assets, uint256 shares);
+    event Deposited(address indexed user, uint256 assetsInMusdc, uint256 sharesInWmusdc);
+    event Withdrawn(address indexed owner, address receiver, uint256 sharesInWmusdc, uint256 assetsInMusdc, uint256 yieldInMusdc,uint256 yieldInUsdc );
+    event WithdrawnWithSubsidy(address indexed owner, address receiver, uint256 sharesInWmusdc, uint256 assetsInMusdc, uint256 yieldInMusdc,uint256 yieldInUsdc, uint256 subsidyInMusdc, uint256 subsidyInUsdc );
     event YieldWithdrawn(address indexed recipient, uint256 amount, uint256 timestamp);
     event DebtLensUpdated(address indexed oldDebtLens, address indexed newDebtLens);
     event MxnbUsdcOracleUpdated(address indexed oldOracle, address indexed newOracle);
     event MarketIdUpdated(bytes32 indexed oldMarketId, bytes32 indexed newMarketId);
+    event GetSubsidy(address indexed user, uint256 interestInMxnb, uint256 oraclePrice, uint256 userInterestSubsidyInWmUSDC);
 
     /**
      * @notice Initialize the WmUSDC wrapper
@@ -169,9 +173,8 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         
         // Mint shares to receiver
         _mint(receiver, shares);
-        
-        emit Deposited(receiver, shares, shares);
-        emit Deposit(msg.sender, receiver, shares, shares);
+
+        emit Deposited(receiver, assets, shares);
         
         return shares;
     }
@@ -220,9 +223,6 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         } else {
             userDepositedAssets[owner] = 0;
         }
-        
-        emit Withdrawn(owner, assets, shares);
-        emit Withdraw(msg.sender, receiver, owner, assets, shares);
         
         return shares;
     }
@@ -291,18 +291,19 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         require(_vaultUSDC.transfer(receiver, assets), "Transfer failed");
         
         // Update user's deposited assets tracking
+        uint256 yield = 0;
         if (userDepositedAssets[owner] >= shares) {
             userDepositedAssets[owner] -= shares;
             userDepositedShares[owner] -= assets;
             userGeneratedYieldInShares[owner] = userDepositedShares[owner];
-            uint256 yield = _convertMUSDCToRealUSDC(userGeneratedYieldInShares[owner]);
+            yield = _convertMUSDCToRealUSDC(userGeneratedYieldInShares[owner]);
             userGeneratedYieldInUSDC[owner] = yield;
             userDepositedShares[owner] = 0;
         } else {
             userDepositedAssets[owner] = 0;
         }
         
-        emit Withdraw(msg.sender, receiver, owner, shares, shares);
+        emit Withdrawn(owner,receiver, shares, assets, userGeneratedYieldInShares[owner], yield);
         
         return assets;
     }
@@ -317,9 +318,10 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
      * - Stores the result in interestSubsidyInWmUSDC[user] for later use in redeemWithInterestSubsidy
      * - User should call this during the repay process to record their interest subsidy
      */
-    function getInterestSubsidy(address user) external returns (uint256) {
+    function getInterestSubsidy(address user) external returns (uint256 subsidy) {
         // Get accrued interest in MXNB (6 decimals)
         uint256 interestInMxnb = IDebtLens(debtLens).getAccruedInterest(marketId, user);
+        userInterestInMxnb[user] = interestInMxnb;
         
         if (interestInMxnb == 0) return 0;
         
@@ -330,13 +332,14 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         uint256 oraclePrice = IWmusdcMxnbOracle(mxnbUsdcOracle).price();
         
         // Price is in format: MXNB (6 decimals) per WmUSDC (18 decimals) scaled by 1e36
-        // Result: interestInMxnb (6 decimals) * oraclePrice / 1e36 = USDC equivalent (6 decimals)
-        // Then scale to 18 decimals for WmUSDC
-        uint256 wmUSDCWith6Decimals = (interestInMxnb * 1e36) / oraclePrice;
-        uint256 wmUSDCWith18Decimals = wmUSDCWith6Decimals * 1e12;
+        // Result: interestInMxnb (6 decimals) * oraclePrice / 1e36 = wmUSDC equivalent (18 decimals)
+        uint256 wmUSDCWith18Decimals = (interestInMxnb * 1e36) / oraclePrice;
         
         // Store the subsidy for later use in redeemWithInterestSubsidy
-        interestSubsidyInWmUSDC[user] = wmUSDCWith18Decimals;
+        userInterestSubsidyInWmUSDC[user] = wmUSDCWith18Decimals;
+
+        emit GetSubsidy(user,interestInMxnb,oraclePrice,wmUSDCWith18Decimals);
+
         return wmUSDCWith18Decimals;
     }
 
@@ -370,31 +373,33 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         uint256 standardReturn = previewRedeem(shares);
         
         // Get stored interest subsidy in WmUSDC shares (18 decimals)
-        uint256 storedInterestSubsidyWmUSDC = interestSubsidyInWmUSDC[owner];
+        uint256 storedInterestSubsidyWmUSDC = userInterestSubsidyInWmUSDC[owner];
 
         // Convert stored interest subsidy from WmUSDC shares to mUSDC (6 decimals)
         uint256 interestSubsidyMUSDC = storedInterestSubsidyWmUSDC > 0 ? previewRedeem(storedInterestSubsidyWmUSDC) : 0;
+        uint256 generatedYield = userDepositedShares[owner] - standardReturn;
 
         // Total mUSDC to return
-        uint256 totalMUSDC = standardReturn + interestSubsidyMUSDC;
+        uint256 totalMUSDC = standardReturn;
+        uint256 subsidyUSDC = 0;
+        if (generatedYield  > interestSubsidyMUSDC ) {
+            totalMUSDC = standardReturn + interestSubsidyMUSDC;
+            subsidyUSDC = _convertMUSDCToRealUSDC(interestSubsidyMUSDC);
+            userPaidSubsidyInUSDC[owner] = subsidyUSDC;
+        }
 
         _burn(owner, shares);
         
         // Transfer all mUSDC in one transaction
         require(_vaultUSDC.transfer(receiver, totalMUSDC), "Transfer failed");
         
-        // Store subsidy in USDC for tracking
-        if (interestSubsidyMUSDC > 0) {
-            uint256 subsidyUSDC = _convertMUSDCToRealUSDC(interestSubsidyMUSDC);
-            userSubsidyInUSDC[owner] = subsidyUSDC;
-        }
-        
         // Update user's deposited assets tracking
+        uint256 yield = 0;
         if (userDepositedAssets[owner] >= shares) {
             userDepositedAssets[owner] -= shares;
             userDepositedShares[owner] -= standardReturn;
             userGeneratedYieldInShares[owner] = userDepositedShares[owner];
-            uint256 yield = _convertMUSDCToRealUSDC(userGeneratedYieldInShares[owner]);
+            yield = _convertMUSDCToRealUSDC(userGeneratedYieldInShares[owner]);
             userGeneratedYieldInUSDC[owner] = yield;
             userDepositedShares[owner] = 0;
         } else {
@@ -402,9 +407,9 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         }
         
         // Reset interest subsidy after redemption
-        interestSubsidyInWmUSDC[owner] = 0;
+        userInterestSubsidyInWmUSDC[owner] = 0;
         
-        emit Withdraw(msg.sender, receiver, owner, shares, shares);
+        emit WithdrawnWithSubsidy(owner,receiver, shares, assets, userGeneratedYieldInShares[owner], yield, interestSubsidyMUSDC, subsidyUSDC);
         
         return totalMUSDC;
     }

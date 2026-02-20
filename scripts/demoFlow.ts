@@ -47,15 +47,15 @@ const BASE_SEPOLIA = {
 const MXNB_MARKET_ID = "0x8f35bfe0b5d0bd885e975ecf97ba16d628a74f711f3bfc5feeb3e25308459be6";//"0xf912f62db71d01c572b28b6953c525851f9e0660df4e422cec986e620da726df"; // Will be set after createMarket.ts
 
 // Collateral to supply (5 USDC = 5 * 10^6 wei)
-const SUPPLY_AMOUNT = ethers.parseUnits("30", 6);
+const SUPPLY_AMOUNT = ethers.parseUnits("0", 6);
 
 // Amount to borrow (200 MXNB = 200 * 10^6 wei)
-const BORROW_AMOUNT = ethers.parseUnits("200", 6);
+const BORROW_AMOUNT = ethers.parseUnits("60", 6);
 
 let isSupplyFlow = false;
-let isBorrowFlow = true;
+let isBorrowFlow = false;
 let isRepayFlow = false;
-let isUnwrappingFlow = false;
+let isUnwrappingFlow = true;
 /**
  * Log helper with formatting
  */
@@ -235,7 +235,6 @@ async function main() {
 
 
     }
-
 
     if (isBorrowFlow) {
       let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
@@ -434,9 +433,10 @@ async function main() {
 
       if (wmUsdcFinalBalance > 0) {
         //const redeemABI = [""];
-        const wmUsdcRedeem = new ethers.Contract(CONTRACT_ADDRESSES.wmUSDC, wmUSDCABI, signer);
+        //const wmUsdcRedeem = new ethers.Contract(CONTRACT_ADDRESSES.wmUSDC, wmUSDCABI, signer);
 
-        const redeemTx = await wmUsdcRedeem.redeemWithInterestSubsidy(wmUsdcFinalBalance, signerAddress, signerAddress, { nonce: nonce++ });
+        //const redeemTx = await wmUSDC.redeemWithInterestSubsidy(wmUsdcFinalBalance, signerAddress, signerAddress, { nonce: nonce++ });
+        const redeemTx = await wmUSDC.redeem(wmUsdcFinalBalance, signerAddress, signerAddress, { nonce: nonce++ });
         await redeemTx.wait();
         console.log(`✓ Redeem confirmed (${redeemTx.hash})`);
       }
