@@ -53,9 +53,9 @@ const SUPPLY_AMOUNT = ethers.parseUnits("0", 6);
 const BORROW_AMOUNT = ethers.parseUnits("200", 6);
 
 let isSupplyFlow = false;
-let isBorrowFlow = true;
+let isBorrowFlow = false;
 let isRepayFlow = false;
-let isUnwrappingFlow = false;
+let isUnwrappingFlow = true;
 /**
  * Log helper with formatting
  */
@@ -228,7 +228,7 @@ async function main() {
 
       console.log(`Supplying ${ethers.formatUnits(SUPPLY_AMOUNT, 6)} USDC to Morpho USDC Vault...`);
       nonce++
-      const depositTx = await morphoUSDCVault.deposit(SUPPLY_AMOUNT, signerAddress, { nonce: nonce++ });
+      const depositTx = await morphoUSDCVault.deposit(SUPPLY_AMOUNT, signerAddress, { nonce: nonce });
       await depositTx.wait();
       console.log(`✓ Supply confirmed (${depositTx.hash})`);
 
@@ -352,12 +352,12 @@ async function main() {
         console.log(`✓ Approval confirmed (${approveCcopTx.hash})`);
 
         let nonce = await ethers.provider.getTransactionCount(signerAddress, "pending");
-        nonce++;
+        //nonce++;
 
         console.log(`Repaying ${debtAssets} MXNB (${borrowShares.toString()} shares)...`);
-        /*const interestTx = await wmUSDC.getInterestSubsidy(signerAddress, { nonce: nonce++ });
+        const interestTx = await wmUSDC.getInterestSubsidy(signerAddress, { nonce: nonce });
         await interestTx.wait();
-        console.log(`✓ Interest tx confirmed (${interestTx.hash})`);*/
+        console.log(`✓ Interest tx confirmed (${interestTx.hash})`);
 
         const repayTx = await morpho.repay(
           marketParams,
@@ -436,7 +436,7 @@ async function main() {
         //const wmUsdcRedeem = new ethers.Contract(CONTRACT_ADDRESSES.wmUSDC, wmUSDCABI, signer);
 
         //const redeemTx = await wmUSDC.redeemWithInterestSubsidy(wmUsdcFinalBalance, signerAddress, signerAddress, { nonce: nonce++ });
-        const redeemTx = await wmUSDC.redeem(wmUsdcFinalBalance, signerAddress, signerAddress, { nonce: nonce++ });
+        const redeemTx = await wmUSDC.redeemWithInterestSubsidy(wmUsdcFinalBalance, signerAddress, signerAddress, { nonce: nonce++ });
         await redeemTx.wait();
         console.log(`✓ Redeem confirmed (${redeemTx.hash})`);
       }
