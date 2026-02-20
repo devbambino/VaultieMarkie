@@ -54,7 +54,7 @@ async function main() {
   console.log(`Deployer: ${deployer.address}`);
   console.log("");
 
-  
+
 
   try {
     // ========================================================================
@@ -107,13 +107,14 @@ async function main() {
     // ========================================================================
     // [2/3] Approve MockUSDC to MetaMorpho Vault
     // ========================================================================
+    let nonce = await ethers.provider.getTransactionCount(deployer.address, "pending");
 
 
     if (isDepositingUSDC) {
       console.log("[2/3] Approving MockUSDC for MetaMorpho Vault...");
 
       console.log(`Approving ${ethers.formatUnits(DEPOSIT_AMOUNT, 6)} USDC to Vault (${VAULT_ADDRESS})...`);
-      const approveTx = await usdc.approve(VAULT_ADDRESS, DEPOSIT_AMOUNT);
+      const approveTx = await usdc.approve(VAULT_ADDRESS, DEPOSIT_AMOUNT, { nonce: nonce++ });
       const approveReceipt = await approveTx.wait();
 
       console.log(`✓ Approval transaction confirmed!`);
@@ -166,7 +167,7 @@ async function main() {
       console.log(`Vault Address: ${VAULT_ADDRESS}`);
       console.log("");
 
-      const depositTx = await vault.deposit(DEPOSIT_AMOUNT, deployer.address);
+      const depositTx = await vault.deposit(DEPOSIT_AMOUNT, deployer.address, { nonce: nonce++ });
       const depositReceipt = await depositTx.wait();
 
       console.log(`✓ Deposit transaction confirmed!`);

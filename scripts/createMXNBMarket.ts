@@ -7,9 +7,9 @@ import * as path from "path";
 // ============================================================================
 const CONTRACT_ADDRESSES = {
   mockMXNB: "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E", // From deploy.ts output
-  wmUSDC: "0xc3cA57cD5E80d98f817F5329E9a220c716f9642d",   // From deploy.ts output
+  wmUSDC: "0x7831ace764ebB4f4976B3dC0534FAe4211031Ce6",   // From deploy.ts output
   fixedPriceOracle: "0x9f4b138BF3513866153Af9f0A2794096DFebFaD4",//"0x3fC166B4eC635B1bddcD04AfaB1a012Ac7c4105E", // From deploy.ts output
-  vaultAddress: ""//"0xd6a83595b11CCC94bCcde4c9654bcaa6D423896e",
+  vaultAddress: "0x0d444472190B2Cd466A5ffF5051B2ae4dDD96510"//"0xd6a83595b11CCC94bCcde4c9654bcaa6D423896e",
 };
 
 // Morpho Blue on Base Sepolia
@@ -187,7 +187,7 @@ async function main() {
     console.log("");
 
 
-    let isCreatingVault = true;
+    let isCreatingVault = false;
     let vaultAddress = "";
     const vaultFactory = new ethers.Contract(VAULT_FACTORY_ADDRESS, VAULT_FACTORY_ABI, deployer);
     if (isCreatingVault) {
@@ -386,7 +386,7 @@ async function main() {
       const vault = new ethers.Contract(vaultAddress, VAULT_ABI, deployer);
 
       // Submit supply cap for the market
-      console.log(
+      /*console.log(
         `Submitting supply cap: ${ethers.formatUnits(VAULT_CONFIG.supplyCapAmount, 6)} MXNB`
       );
 
@@ -396,7 +396,7 @@ async function main() {
       console.log(`✓ Supply cap submitted!`);
       console.log(`  Transaction Hash: ${submitCapReceipt?.hash}`);
       console.log(`  Block Number: ${submitCapReceipt?.blockNumber}`);
-      console.log("");
+      console.log("");*/
 
       // Accept cap if timelock is 0 (for testing)
       if (VAULT_CONFIG.initialTimelock === 0) {

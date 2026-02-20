@@ -50,9 +50,9 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
     IMorphoVault private immutable _vaultUSDC;
 
     // Deployed contract addresses for interest subsidy
-    address public constant DEBT_LENS = 0x14751F624968372878cDE4238e84Fb3D980C4F05;
-    address public constant MXNB_USDC_ORACLE = 0x9f4b138BF3513866153Af9f0A2794096DFebFaD4;
-    bytes32 public constant marketId = 0xf912f62db71d01c572b28b6953c525851f9e0660df4e422cec986e620da726df;
+    address public debtLens = 0x14751F624968372878cDE4238e84Fb3D980C4F05;
+    address public mxnbUsdcOracle = 0x9f4b138BF3513866153Af9f0A2794096DFebFaD4;
+    bytes32 public marketId = 0xf912f62db71d01c572b28b6953c525851f9e0660df4e422cec986e620da726df;
 
     // Track per-user deposits in USDC-equivalent value
     mapping(address => uint256) public userDepositedAssets;
@@ -66,6 +66,9 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
     event Deposited(address indexed user, uint256 assets, uint256 shares);
     event Withdrawn(address indexed user, uint256 assets, uint256 shares);
     event YieldWithdrawn(address indexed recipient, uint256 amount, uint256 timestamp);
+    event DebtLensUpdated(address indexed oldDebtLens, address indexed newDebtLens);
+    event MxnbUsdcOracleUpdated(address indexed oldOracle, address indexed newOracle);
+    event MarketIdUpdated(bytes32 indexed oldMarketId, bytes32 indexed newMarketId);
 
     /**
      * @notice Initialize the WmUSDC wrapper
@@ -316,7 +319,7 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
      */
     function getInterestSubsidy(address user) external returns (uint256) {
         // Get accrued interest in MXNB (6 decimals)
-        uint256 interestInMxnb = IDebtLens(DEBT_LENS).getAccruedInterest(marketId, user);
+        uint256 interestInMxnb = IDebtLens(debtLens).getAccruedInterest(marketId, user);
         
         if (interestInMxnb == 0) return 0;
         
@@ -324,7 +327,7 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         // Formula: WmusdcAmount = MxnbAmount * OraclePrice / 1e48
         // Since MXNB has 6 decimals and mUSDC has 18 decimals:
         // We need to scale appropriately
-        uint256 oraclePrice = IWmusdcMxnbOracle(MXNB_USDC_ORACLE).price();
+        uint256 oraclePrice = IWmusdcMxnbOracle(mxnbUsdcOracle).price();
         
         // Price is in format: MXNB (6 decimals) per WmUSDC (18 decimals) scaled by 1e36
         // Result: interestInMxnb (6 decimals) * oraclePrice / 1e36 = USDC equivalent (6 decimals)
@@ -528,5 +531,35 @@ contract WmUSDC is ERC20, ERC4626, Ownable {
         require(_vaultUSDC.transfer(recipient, available), "Transfer failed");
 
         emit YieldWithdrawn(recipient, available, block.timestamp);
+    }
+
+    /**
+     * @notice Set the DebtLens contract address
+     * @param _debtLens The new DebtLens address
+     */
+    function setDebtLens(address _debtLens) external onlyOwner {
+        require(_debtLens != address(0), "Invalid address");
+        emit DebtLensUpdated(debtLens, _debtLens);
+        debtLens = _debtLens;
+    }
+
+    /**
+     * @notice Set the MXNB/USDC Oracle address
+     * @param _mxnbUsdcOracle The new Oracle address
+     */
+    function setMxnbUsdcOracle(address _mxnbUsdcOracle) external onlyOwner {
+        require(_mxnbUsdcOracle != address(0), "Invalid address");
+        emit MxnbUsdcOracleUpdated(mxnbUsdcOracle, _mxnbUsdcOracle);
+        mxnbUsdcOracle = _mxnbUsdcOracle;
+    }
+
+    /**
+     * @notice Set the Market ID
+     * @param _marketId The new Market ID
+     */
+    function setMarketId(bytes32 _marketId) external onlyOwner {
+        require(_marketId != bytes32(0), "Invalid marketId");
+        emit MarketIdUpdated(marketId, _marketId);
+        marketId = _marketId;
     }
 }

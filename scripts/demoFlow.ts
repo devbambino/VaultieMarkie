@@ -29,11 +29,11 @@ import * as ethersLib from "ethers";
 const CONTRACT_ADDRESSES = {
   mockMXNB: "0xF19D2F986DC0fb7E2A82cb9b55f7676967F7bC3E",
   mockWETH: "0x1ddebA64A8B13060e13d15504500Dd962eECD35B",
-  wmUSDC: "0xc3cA57cD5E80d98f817F5329E9a220c716f9642d",//"0xCa4625EA7F3363d7E9e3090f9a293b64229FE55B",
+  wmUSDC: "0x7831ace764ebB4f4976B3dC0534FAe4211031Ce6",//"0xCa4625EA7F3363d7E9e3090f9a293b64229FE55B",
   wmusdcMxnbOracle: "0x9f4b138BF3513866153Af9f0A2794096DFebFaD4",
   ethUsdcOracle: "0x97EBCdb0F784CDc9F91490bEBC9C8756491814a3",
   morphoUSDCVault: "0xA694354Ab641DFB8C6fC47Ceb9223D12cCC373f9", // Morpho USDC Vault - UPDATE AFTER CREATION
-  morphoMXNBVault: "0x3c7d4B1Ba9Fad0555843924BB942a887b0ceae58", // Morpho MXNB Vault - UPDATE AFTER CREATION
+  morphoMXNBVault: "0x0d444472190B2Cd466A5ffF5051B2ae4dDD96510", // Morpho MXNB Vault - UPDATE AFTER CREATION
   debtLens: "0x14751F624968372878cDE4238e84Fb3D980C4F05"
 };
 
@@ -44,18 +44,18 @@ const BASE_SEPOLIA = {
 };
 
 // UPDATE THIS from market-details.json after createMarket.ts
-const MXNB_MARKET_ID = "0xf9f693bcf70a9c57d7dc70358ccace07ef348a24de6a72ed739dc11af0846b35";//"0xf912f62db71d01c572b28b6953c525851f9e0660df4e422cec986e620da726df"; // Will be set after createMarket.ts
+const MXNB_MARKET_ID = "0x8f35bfe0b5d0bd885e975ecf97ba16d628a74f711f3bfc5feeb3e25308459be6";//"0xf912f62db71d01c572b28b6953c525851f9e0660df4e422cec986e620da726df"; // Will be set after createMarket.ts
 
 // Collateral to supply (5 USDC = 5 * 10^6 wei)
 const SUPPLY_AMOUNT = ethers.parseUnits("30", 6);
 
 // Amount to borrow (200 MXNB = 200 * 10^6 wei)
-const BORROW_AMOUNT = ethers.parseUnits("5", 6);
+const BORROW_AMOUNT = ethers.parseUnits("200", 6);
 
 let isSupplyFlow = false;
-let isBorrowFlow = false;
-let isRepayFlow = true;
-let isUnwrappingFlow = true;
+let isBorrowFlow = true;
+let isRepayFlow = false;
+let isUnwrappingFlow = false;
 /**
  * Log helper with formatting
  */
