@@ -34,7 +34,7 @@ let isRepayment = false;
 // Collateral Amount to supply (0.1 WETH = 1 * 10^17 wei = 198 USD)
 const SUPPLY_AMOUNT = ethers.parseUnits("0", 18);
 // Amount to borrow (5 USDC = 5 * 10^6 wei)
-const BORROW_AMOUNT = ethers.parseUnits("20", 6);
+const BORROW_AMOUNT = ethers.parseUnits("70", 6);
 
 
 try {
