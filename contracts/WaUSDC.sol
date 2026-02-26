@@ -24,6 +24,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract WaUSDC is ERC20, ERC4626, Ownable {
     // Reference to the underlying Aave aToken
     IERC20 private immutable _aUSDC;
+    
+    // Track total original deposits to keep yield on redemptions
+    uint256 private _totalDeposited;
 
     // Events
     event Deposited(address indexed user, uint256 assets, uint256 shares);
@@ -51,6 +54,15 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
         // Return the current balance of aUSDC held by this contract
         // This includes both principal and accrued Aave interest
         return _aUSDC.balanceOf(address(this));
+    }
+
+    /**
+     * @notice Get total original deposits (excludes accrued yield)
+     * @return Total amount of aUSDC originally deposited
+     * @dev Used to calculate redemptions and keep yield in the vault
+     */
+    function getTotalDeposited() public view returns (uint256) {
+        return _totalDeposited;
     }
 
     /**
@@ -83,6 +95,9 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
             _aUSDC.transferFrom(msg.sender, address(this), assets),
             "Transfer failed"
         );
+        
+        // Track original deposit amount
+        _totalDeposited += assets;
         
         // Mint shares to receiver
         _mint(receiver, shares);
@@ -150,6 +165,9 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
             "Transfer failed"
         );
         
+        // Track original deposit amount
+        _totalDeposited += assets;
+        
         _mint(receiver, shares);
         
         emit Deposit(msg.sender, receiver, assets, shares);
@@ -159,6 +177,7 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
 
     /**
      * @notice Redeem WaUSDC shares for aUSDC
+     * @dev Returns aUSDC based on original deposit amount, keeping accrued yield
      * @param shares Amount of shares to redeem
      * @param receiver Address to receive aUSDC
      * @param owner Address whose shares are burned
@@ -181,6 +200,9 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
         }
         
         _burn(owner, shares);
+        
+        // Reduce total deposited to reflect redemption
+        _totalDeposited -= assets;
         
         require(_aUSDC.transfer(receiver, assets), "Transfer failed");
         
@@ -241,6 +263,7 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
 
     /**
      * @notice Preview how many aUSDC would be returned for redeeming shares
+     * @dev Based on original deposits, not current assets (keeps yield)
      * @param shares Amount of shares to redeem
      * @return Assets that would be returned
      */
@@ -250,8 +273,9 @@ contract WaUSDC is ERC20, ERC4626, Ownable {
         override(ERC4626)
         returns (uint256)
     {
-        // assets = shares * (totalAssets / totalSupply)
+        // assets = shares * (totalDeposited / totalSupply)
+        // This returns the proportional share of original deposits, keeping accrued yield
         uint256 supply = totalSupply();
-        return supply == 0 ? shares : (shares * totalAssets()) / supply;
+        return supply == 0 ? shares : (shares * _totalDeposited) / supply;
     }
 }
