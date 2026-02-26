@@ -681,8 +681,8 @@
       ]
     },
     "/workspaces/VaultieMarkie/contracts/WaUSDC.sol": {
-      "lastModificationDate": 1768604535332,
-      "contentHash": "83df22edee67b0260650c3f7fd70c156",
+      "lastModificationDate": 1772126631096,
+      "contentHash": "0f36f07af211e612ef4d273fb9d53b13",
       "sourceName": "contracts/WaUSDC.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -718,6 +718,8 @@
         "^0.8.19"
       ],
       "artifacts": [
+        "IDebtLens",
+        "IWaUSDCCCOPOracle",
         "WaUSDC"
       ]
     }
