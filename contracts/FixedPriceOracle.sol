@@ -20,7 +20,7 @@ contract FixedPriceOracle {
     /// @dev Morpho requires price scaled by 1e36
     /// For our PoC: 1 WaUSDC (6 decimals) = 1 cCOP (6 decimals)
     /// So price = 1 * 10^36 = 1e36
-    uint256 private constant PRICE = 1e36;
+    uint256 private constant PRICE = 1 * 10**(6 - 6 + 36);
 
     /**
      * @notice Get the price of collateral quoted in loan token

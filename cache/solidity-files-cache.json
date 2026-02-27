@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/workspaces/VaultieMarkie/contracts/FixedPriceOracle.sol": {
-      "lastModificationDate": 1768604535332,
-      "contentHash": "7695fd3867f3b8f16d773dbc895def5e",
+      "lastModificationDate": 1772160015065,
+      "contentHash": "17090d5632609a4a3640766a9e1dc6a2",
       "sourceName": "contracts/FixedPriceOracle.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -681,8 +681,8 @@
       ]
     },
     "/workspaces/VaultieMarkie/contracts/WaUSDC.sol": {
-      "lastModificationDate": 1772126631096,
-      "contentHash": "0f36f07af211e612ef4d273fb9d53b13",
+      "lastModificationDate": 1772161785480,
+      "contentHash": "9b6f079bd9c29fe8bbbf09b334c2392b",
       "sourceName": "contracts/WaUSDC.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -709,18 +709,128 @@
         }
       },
       "imports": [
-        "@openzeppelin/contracts/token/ERC20/ERC20.sol",
         "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol",
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "@openzeppelin/contracts/access/Ownable.sol"
       ],
       "versionPragmas": [
-        "^0.8.19"
+        "^0.8.20"
       ],
       "artifacts": [
         "IDebtLens",
         "IWaUSDCCCOPOracle",
         "WaUSDC"
+      ]
+    },
+    "/workspaces/VaultieMarkie/contracts/MockERC20.sol": {
+      "lastModificationDate": 1772160808350,
+      "contentHash": "f52d1361fd4157d1cd81e1603545b929",
+      "sourceName": "contracts/MockERC20.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MockERC20"
+      ]
+    },
+    "/workspaces/VaultieMarkie/contracts/MockDebtLens.sol": {
+      "lastModificationDate": 1772160069031,
+      "contentHash": "928bbb552e57aa15fcfd04774310f383",
+      "sourceName": "contracts/MockDebtLens.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MockDebtLens"
+      ]
+    },
+    "/workspaces/VaultieMarkie/contracts/MockOracle.sol": {
+      "lastModificationDate": 1772160808350,
+      "contentHash": "f04399bd662ae1fd2853e828f016b93a",
+      "sourceName": "contracts/MockOracle.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MockOracle"
       ]
     }
   }
